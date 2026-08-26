@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cross-provider code review"
+  short_description: "Supervise and triage a cross-model review"
+  default_prompt: "Use $cross-provider-code-review to supervise a chosen Claude or Codex reviewer and assess its comments."

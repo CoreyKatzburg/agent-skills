@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transcript Export"
+  short_description: "Export the current Cursor, Claude, or Codex transcript."
+  default_prompt: "Use $transcript to export the current Cursor, Claude Code, or Codex conversation to a Markdown file in a directory I specify."

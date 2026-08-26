@@ -1,0 +1,20 @@
+{
+  "name": "agent-skills",
+  "displayName": "Agent Skills",
+  "owner": {
+    "name": "Corey Katzburg",
+    "email": "corey.katzburg@ofbasis.com"
+  },
+  "metadata": {
+    "description": "Personal user-level Cursor agent skills",
+    "version": "1.0.0",
+    "pluginRoot": "plugins"
+  },
+  "plugins": [
+    {
+      "name": "agent-skills",
+      "source": "agent-skills",
+      "description": "Personal skills for PR comments, reviews, Graphite stacks, transcripts, and related workflows"
+    }
+  ]
+}
