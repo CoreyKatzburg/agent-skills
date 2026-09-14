@@ -13,6 +13,7 @@ This repo is a [Cursor team marketplace](https://cursor.com/docs/plugins.md#team
 - `automate-me`
 - `babysit-pr`
 - `blast-radius`
+- `box`
 - `bro`
 - `create-verification-skill`
 - `cross-provider-code-review`
@@ -20,6 +21,7 @@ This repo is a [Cursor team marketplace](https://cursor.com/docs/plugins.md#team
 - `explain-problem-and-fix`
 - `figure-it-out`
 - `how`
+- `i-have-adhd`
 - `implement-with-graphite-stack`
 - `interrogate`
 - `investigate-potential-bug`
