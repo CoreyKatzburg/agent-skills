@@ -13,14 +13,21 @@ description: >
   vague, jargon-heavy, incomplete, or overly detailed explanations; unfamiliar
   concepts that are not defined; missing purpose, contracts, side effects,
   returns, or exceptions; and redundant documentation that merely repeats the
-  code. The result should be concise and understandable to someone who has
-  never seen the related code or system. Do not use for documentation work
-  that does not explicitly involve comments or docstrings.
+  code. The result should be clear, easy to understand, and quick to read
+  to someone who has never seen the related code or system.
+  Comments default to 1-3 lines and docstrings to 1-8 lines, preferring
+  shorter.
 ---
 
 # Docstrings
 
 Write comments and docstrings that explain complex code clearly to a reader who has never seen the code or system. Preserve code behavior unless the user separately asks for a behavior change.
+
+## Keep them short
+
+Docstrings should be clear and easily understandable, and part of that is being able to read them quickly. Most comments by default should be 1-3 lines and docstrings should be 1-8 lines, preferring shorter as better. They should only go over this amount if there is genuinely enough very important information that a reader should know that cant fit in that content.
+
+`Args`, `Returns`, and `Raises` sections do not count toward the line limit. Include them on function docstrings unless every argument, return, and exception is obvious, for example `is_feature_flag_enabled(feature_flag: str) -> bool` when the function does not raise.
 
 ## Prepare
 
@@ -60,17 +67,17 @@ If confusing code needs clearer naming or structure instead of more documentatio
 - Document arguments by their meaning and effect, not by repeating names and types.
 - Describe return values, exclusions that prevent likely misunderstandings, caller-relevant exceptions, side effects, and important optional-versus-required behavior when relevant.
 - For functions with several meaningful parameters, cross-component side
-  effects, or deliberate failure behavior, default to complete `Args`,
-  `Returns`, and `Raises` sections. Follow the language and repository's
-  established format. Omit sections for short, obvious functions when they add
-  no useful information.
+  effects, or deliberate failure behavior, include `Args`, `Returns`, and
+  `Raises` unless every argument, return, and exception is obvious. Follow
+  the language and repository's established format. These sections do not
+  count toward the 1-8 line default.
 - Add an example only when it makes non-obvious calculations, filtering, or state changes materially easier to understand.
 - Include only the information needed to understand or safely use the code. Remove repetition and implementation narration.
 - State uncertainty when the code and tests do not establish intent. Do not invent a stronger contract than the implementation supports.
 
 Before finalizing, ask:
 
-> Could a reader who has never seen this code or the system it belongs to explain every technical term, what the code does, and why it exists?
+> Could a reader who has never seen this code or the system it belongs to explain every technical term, what the code does, and why it exists? Could they read it in 30 seconds or less and completely understand it?
 
 For a multi-component workflow, also ask:
 
@@ -162,7 +169,7 @@ Raises:
 """
 ```
 
-Use the example as a clarity standard, not as a required length or template. Straightforward code should have shorter documentation.
+Use the example as a clarity standard, not as a required length or template. The body is longer than the 1-8 line default because it carries important information that cannot fit shorter. The `Args`, `Returns`, and `Raises` sections do not count toward that limit. Prefer the short default whenever that extra body detail is not needed.
 
 ### Queued Workflow Example
 
@@ -229,11 +236,12 @@ Raises:
 """
 ```
 
-The example describes observable behavior at the function boundary. It does not narrate each internal call.
+The example describes observable behavior at the function boundary. It does not narrate each internal call. The body is longer than the default because a queued multi-system contract often cannot fit in 8 lines. Use that length only when the extra information is genuinely required. The `Args`, `Returns`, and `Raises` sections do not count toward the limit.
 
 ## Finish
 
 1. Verify every documentation claim against the current code and tests.
-2. Make no behavior changes unless the user requested them.
-3. For edits, run narrow formatting, lint, or documentation checks for the changed files. If no automated check applies, review the diff manually.
-4. Report what was explained, reviewed, or changed; what was verified; and any documentation gaps left intentionally.
+2. Confirm comments are 1-3 lines and the docstring body is 1-8 lines unless the extra length is justified. `Args`, `Returns`, and `Raises` do not count toward that limit.
+3. Make no behavior changes unless the user requested them.
+4. For edits, run narrow formatting, lint, or documentation checks for the changed files. If no automated check applies, review the diff manually.
+5. Report what was explained, reviewed, or changed; what was verified; and any documentation gaps left intentionally.
