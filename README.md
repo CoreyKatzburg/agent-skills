@@ -19,6 +19,7 @@ This repo is a [Cursor team marketplace](https://cursor.com/docs/plugins.md#team
 - `cross-provider-code-review`
 - `docstrings`
 - `explain-problem-and-fix`
+- `excalidraw-diagram`
 - `figure-it-out`
 - `how`
 - `i-have-adhd`
