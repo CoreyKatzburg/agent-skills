@@ -2,7 +2,7 @@
 
 Personal Cursor plugin with user-level skills that previously lived only on this machine (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills`).
 
-This repo is a [Cursor team marketplace](https://cursor.com/docs/plugins.md#team-marketplaces) with one plugin, `agent-skills`.
+This repo is one Cursor plugin. Import it as a [team marketplace](https://cursor.com/docs/plugins.md#team-marketplaces) when Cloud Agents need it.
 
 ## Skills included
 
@@ -38,11 +38,11 @@ If install creates an empty cache folder, delete `~/.cursor/plugins/cache/` entr
 
 ```bash
 mkdir -p ~/.cursor/plugins/local
-ln -s ~/Repos/agent-skills/plugins/agent-skills ~/.cursor/plugins/local/agent-skills
+ln -s ~/Repos/agent-skills ~/.cursor/plugins/local/agent-skills
 ```
 
 Then **Developer: Reload Window**. This does not sync to cloud VMs.
 
 ## Updating skills later
 
-Copy the changed skill folder into `plugins/agent-skills/skills/`, commit, and push. Then refresh the team marketplace (or wait for Auto Refresh if you enable it). No automatic sync from your home-directory skill folders is set up.
+Copy the changed skill folder into `skills/`, commit, and push. Then refresh the team marketplace (or wait for Auto Refresh if you enable it). No automatic sync from your home-directory skill folders is set up.
