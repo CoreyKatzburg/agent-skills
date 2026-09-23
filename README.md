@@ -8,8 +8,8 @@ This repo is one plugin with two manifests that share the same `skills/` folder:
 
 - `address-my-comments`
 - `address-pr-comments`
-- `babysit-pr`
 - `box`
+- `corey-mode`
 - `cross-provider-code-review`
 - `docstrings`
 - `explain-problem-and-fix`
