@@ -1,0 +1,10 @@
+{
+  "name": "agent-skills",
+  "version": "1.0.0",
+  "description": "Personal user-level agent skills for PR comments, reviews, Graphite stacks, transcripts, and related workflows.",
+  "author": {
+    "name": "Corey Katzburg"
+  },
+  "repository": "https://github.com/CoreyKatzburg/agent-skills",
+  "skills": "skills"
+}

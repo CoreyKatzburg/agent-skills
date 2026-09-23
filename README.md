@@ -2,7 +2,7 @@
 
 Personal Cursor plugin with user-level skills that previously lived only on this machine (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills`).
 
-This repo is one Cursor plugin. Import it as a [team marketplace](https://cursor.com/docs/plugins.md#team-marketplaces) when Cloud Agents need it.
+This repo is one plugin with two manifests that share the same `skills/` folder: `.cursor-plugin/plugin.json` for Cursor and `.devin-plugin/plugin.json` for Devin. Keep their `name`, `version`, and `description` in sync.
 
 ## Skills included
 
@@ -42,6 +42,20 @@ ln -s ~/Repos/agent-skills ~/.cursor/plugins/local/agent-skills
 ```
 
 Then **Developer: Reload Window**. This does not sync to cloud VMs.
+
+## Add this as a Devin plugin
+
+Devin reads [`.devin-plugin/plugin.json`](https://docs.devin.ai/cli/extensibility/plugins/overview). Skills show up as `/agent-skills:<skill>`.
+
+```bash
+# Synced to your Devin account, so cloud sessions get it too
+devin plugins install CoreyKatzburg/agent-skills
+
+# This machine only, linked to the checkout so edits are live
+devin plugins install --local ~/Repos/agent-skills
+```
+
+Run `devin plugins info agent-skills` to confirm the skills loaded, and `devin plugins update agent-skills` after pushing changes. For a private repo, Devin needs GitHub access to it.
 
 ## Updating skills later
 
