@@ -35,7 +35,7 @@ For comments and docstrings, follow the `docstrings` skill.
 
 Stay local. Do not commit, push, or open a PR until the user says so. They often open the PR themselves, then ask for the description.
 
-Multi-PR work is implemented as a Graphite stack. Plan how the work will be split into smaller stacked PRs. Once the work is implemented, notify the user when ready to create the stack and ask for the go-ahead to submit. ONLY when the user gives approval, restack the whole stack off latest main if not done recently, then push the stack with gt submit (can be done all at once with 'gt get <top branch of stack> && gt r && gt s -s'; do not use `gt sync`, which touches the user's other local branches). Make sure that the branches are ordered as a proper graphite stack with main as the trunk branch.
+Multi-PR work is implemented as a Graphite stack. Plan how the work will be split into smaller stacked PRs. Once the work is implemented, notify the user when ready to create the stack and ask for the go-ahead to submit. ONLY when the user gives approval, restack the whole stack off latest main if not done recently, then push the stack with gt submit (can be done all at once with 'gt get <top branch of stack> && gt s -s'; do not use `gt sync`, which touches unrelated local branches). Make sure that the branches are ordered as a proper graphite stack with main as the trunk branch.
 
 Do not monitor or babysit PRs. Only pull review comments when the user asks, using the `address-pr-comments` skill. If you happen to read a PR you are already working on and see comments, ask whether to address them with `/address-pr-comments`. Do not start that workflow on your own.
 
