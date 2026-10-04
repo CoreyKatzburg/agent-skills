@@ -1,71 +1,77 @@
 {
-  "speaking_speed": 1.2,
-  "pause_after_scene_seconds": 0.7,
+  "speaking_speed": 1.3,
+  "kokoro_voice": "am_michael",
+  "pause_after_scene_seconds": 0.6,
   "scenes": [
     {
       "id": "hook",
       "title": "DynamoDB",
-      "text": "During Prime Day, Amazon's own systems call one database more than a hundred million times per second. And most of those calls come back in just a few milliseconds. That database is DynamoDB. Here's how it pulls that off."
+      "text": "On Prime Day 2025, Amazon's own systems sent one database more than a hundred and fifty million requests per second. Most of them were answered in a few milliseconds. That database is DynamoDB. Let me walk you through how it pulls that off, and when you should, and shouldn't, use it."
     },
     {
       "id": "what",
       "title": "What is DynamoDB?",
-      "text": "DynamoDB is a database that Amazon Web Services runs for you. You never set up servers, install software, or apply patches. You just create a table and start saving data. It's a NoSQL database, which means it skips the fixed columns and table joins of a traditional SQL database. Instead, it's built around one idea: find any piece of data instantly, using its key."
+      "text": "First, what is it? DynamoDB is a database that Amazon Web Services runs for you. You never set up servers, install software, or apply patches. You just create a table and start saving data. It's a NoSQL database. That means it gives up things a traditional SQL database has, like fixed columns and joining tables together. In exchange, it's built around one simple idea: find any piece of data instantly, using its key."
     },
     {
       "id": "items",
-      "title": "Tables, items, attributes",
-      "text": "Data lives in tables. A table holds items, and each item is a bundle of attributes, a bit like a row in a spreadsheet. But unlike a spreadsheet, items don't need matching columns. One customer might have a phone number. Another might have a list of addresses. DynamoDB only insists on one thing: every item needs a primary key."
+      "title": "How the data is shaped",
+      "text": "Here's how the data is shaped. Data lives in tables. A table holds items, and each item is a bundle of attributes, a bit like a row in a spreadsheet. The difference is that items don't need matching columns. One customer might have a phone number. Another might have a list of addresses. DynamoDB only insists on one thing: every item needs a primary key."
     },
     {
       "id": "keys",
       "title": "The primary key",
-      "text": "The primary key has up to two parts. The partition key decides where an item is stored. The sort key is optional, and it orders items that share the same partition key. Picture an Orders table. The partition key is the customer ID, and the sort key is the order date. Now all of one customer's orders sit together, already sorted by date."
+      "text": "That key is the most important choice you'll make, so let's look closer. It has up to two parts. The partition key decides where an item is stored. The sort key is optional, and it orders items that share the same partition key. Say we have an Orders table. The partition key is the customer ID, and the sort key is the order date. Now all of one customer's orders sit together, already sorted by date."
     },
     {
       "id": "hashing",
       "title": "Partitions and hashing",
-      "text": "So how does it stay fast? Behind the scenes, every table is split into chunks called partitions, spread across many storage servers. When you save an item, DynamoDB runs its partition key through a hash function. That turns the key into a number, and the number points to exactly one partition. To read the item back, DynamoDB does the same math and goes straight to the right place. No searching through the whole table."
+      "text": "So why does the partition key matter so much? Because it's how DynamoDB stays fast. A table isn't stored in one place. It's split into chunks called partitions, spread across many storage servers. When you save an item, DynamoDB runs its partition key through a hash function. That's just math that turns the key into a number, and the number points to exactly one partition. To read the item back, it does the same math and goes straight to the right place. No searching through the whole table."
     },
     {
       "id": "scaling",
       "title": "How it scales",
-      "text": "As your table grows, DynamoDB splits full or busy partitions in two, and spreads them across more servers. Each partition only handles its own slice of the data. So a table with a billion items answers about as fast as one with a thousand. That's the whole trick. The work is divided up, so no single machine ever has to do it all."
+      "text": "And this is the trick that lets it scale. When a partition fills up or gets too busy, DynamoDB splits it in two, and spreads the halves across more servers. Each partition only handles its own slice of the data. So a table with a billion items answers about as fast as one with a thousand. No single machine ever has to do all the work."
     },
     {
       "id": "replication",
-      "title": "Copies for safety",
-      "text": "But what if a server dies? Every partition is copied three times, into three separate data centers called availability zones. One copy is the leader. A write counts as saved once two of the three copies have it. If one copy goes down, the other two keep serving traffic, and DynamoDB builds a replacement."
+      "title": "Keeping data safe",
+      "text": "But servers fail all the time, so how is your data safe? Every partition is copied three times, into three separate data centers called availability zones. One copy is the leader. A write counts as saved once two of the three copies have it. If one copy goes down, the other two keep serving traffic while DynamoDB builds a replacement."
     },
     {
       "id": "consistency",
       "title": "Two kinds of reads",
-      "text": "Those copies give you a choice when you read. An eventually consistent read can be answered by any copy. It might be a split second behind, but it costs half as much. A strongly consistent read always goes to the leader, so you're guaranteed the latest data."
+      "text": "Those copies give you a choice when you read. An eventually consistent read can be answered by any copy. It might be a split second behind, but it costs half as much. A strongly consistent read always goes to the leader, so you're guaranteed the latest data. Most apps are fine with the cheaper one."
     },
     {
       "id": "reading",
       "title": "Ways to read data",
-      "text": "There are three main ways to read. Get Item fetches one item by its full key. That's the fastest. Query grabs items that share one partition key, like all of a customer's orders from March. Scan reads every item in the table. It works, but it's slow and costly on big tables. Need to look things up another way, like by order status? Add a global secondary index. It's a copy of your data, organized by a different key, and DynamoDB keeps it in sync for you."
+      "text": "Now here's the catch. Because everything is organized by key, how you read matters a lot. Get Item fetches one item by its full key. That's the fastest. Query grabs items that share one partition key, like one customer's orders from March. Scan reads every item in the table. It works, but on a big table it's slow and expensive. If you need to look things up another way, like by order status, you add a global secondary index. That's a second copy of your data, organized by a different key, and DynamoDB keeps it in sync for you."
     },
     {
       "id": "hot",
-      "title": "Watch out: hot partitions",
-      "text": "One common mistake is picking a partition key with only a few possible values. If every new item uses today's date as its key, all the traffic lands on one partition while the others sit idle. That's called a hot partition, and it slows everything down. Pick keys with lots of different values, like user IDs, so the load spreads out evenly."
+      "title": "The most common mistake",
+      "text": "This leads to the most common mistake. Say you pick a partition key with only a few possible values, like today's date. Then every new item lands on the same partition, while the others sit idle. That's called a hot partition, and it slows everything down. The fix is to pick keys with lots of different values, like user IDs, so the load spreads out evenly."
     },
     {
       "id": "pricing",
       "title": "How you pay",
-      "text": "You pay in one of two ways. On-demand mode charges for each request, which is great when traffic is unpredictable. Provisioned mode lets you reserve a set number of reads and writes per second, which is cheaper when traffic is steady. Storage is billed separately, by the gigabyte."
+      "text": "A quick word on cost. You pay in one of two ways. On-demand mode charges for each request, which is great when traffic is unpredictable. Provisioned mode lets you reserve a set number of reads and writes per second, which is cheaper when traffic is steady. Storage is billed separately, by the gigabyte."
+    },
+    {
+      "id": "tradeoffs",
+      "title": "Strengths and weaknesses",
+      "text": "So let's sum up the trade. The strengths: it's fast at any size, there are no servers to manage, it survives failures on its own, and you can pay only for what you use. The weaknesses all come from that same design. You have to know your questions up front, because your data is organized around your keys. There are no joins. And changing how you read later can mean reshaping all your data."
     },
     {
       "id": "fit",
       "title": "When to use it",
-      "text": "So when should you use DynamoDB? It shines when you know ahead of time how your app will look up data, and you need speed at any size. Think shopping carts, user profiles, game leaderboards, and login sessions. It's a weaker fit when you need complex joins, or want to ask new questions of your data that you didn't plan for. A relational database or a data warehouse handles those better."
+      "text": "So when should you use it? Reach for DynamoDB when you know ahead of time how your app will look up data, and you need it fast at any size. Think shopping carts, user profiles, game leaderboards, and login sessions. Each of those is fetched by one simple key. Skip it when you need complex joins, or want to ask new questions you didn't plan for, like one-off reports. A relational database or a data warehouse handles those better."
     },
     {
       "id": "recap",
       "title": "Recap",
-      "text": "Quick recap. Tables hold items, and every item has a key. The partition key is hashed to pick a partition. Partitions split as your data grows, and each one is copied three times. Design your keys around how you read, and DynamoDB stays fast, from your first user to your hundred millionth."
+      "text": "Here's the whole picture. Tables hold items, and every item has a key. The partition key is hashed to pick a partition. Partitions split as your data grows, and each one is copied three times. So design your keys around how you'll read, and DynamoDB stays fast, from your first user to your hundred millionth."
     }
   ]
 }

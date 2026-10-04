@@ -1,6 +1,6 @@
 # DynamoDB, explained (video)
 
-A narrated, animated explainer video (about 4½ minutes, 1920×1080) that teaches what Amazon DynamoDB is and how it works. It covers tables and items, primary keys, partitions and hashing, scaling, the three copies of your data, read consistency, ways to read, hot partitions, pricing, and when to use it.
+A narrated, animated explainer video (about 5 minutes, 1920×1080) that teaches what Amazon DynamoDB is and how it works. It's written like a senior engineer walking an intern through it from first principles: tables and items, primary keys, partitions and hashing, scaling, the three copies of your data, read consistency, ways to read, hot partitions, pricing, strengths and weaknesses, and when to use it.
 
 The video is code, not a video-editor project. That makes it easy to change one sentence or one animation and render again.
 
@@ -8,7 +8,7 @@ The video is code, not a video-editor project. That makes it easy to change one 
 
 | Step | File | What it does |
 | --- | --- | --- |
-| 1. Script | `narration.json` | What the narrator says, split into 13 scenes. |
+| 1. Script | `narration.json` | What the narrator says, split into 14 scenes, plus the voice and speaking speed. |
 | 2. Voice | `make_voiceover.py` | Turns each scene into speech and records **when every word is spoken**. Writes `build/voiceover.wav` and `build/timeline.js`. |
 | 3. Pictures | `video.html` | Draws each scene with HTML and SVG. Each animation is tied to a spoken word, for example "show the hash box when the narrator says *hash*". So if the voice changes speed, the animations stay in sync on their own. |
 | 4. Render | `render_video.js` | Opens the page in headless Chromium, takes a picture of every frame (30 per second), and has `ffmpeg` join the frames and the voice into `build/dynamodb-explainer.mp4`. |
@@ -35,11 +35,11 @@ Useful extras:
 
 `make_voiceover.py --provider <name> [--voice <voice>] [--speed 1.15]`
 
-Speaking speed comes from `speaking_speed` in `narration.json`. It is currently 1.2, which comes out about 15% faster than normal, because Kokoro's speed number is a bit stronger on paper than in practice. `--speed` overrides it for one run. The animations follow the words, so any speed stays in sync.
+The voice comes from `kokoro_voice` in `narration.json` (currently the male voice `am_michael`), and speed from `speaking_speed` (currently 1.3). Kokoro's speed control moves in steps rather than smoothly, so measure before trusting a number: for `am_michael`, 1.3 is about the same pace as `af_heart` at 1.2, while 1.34 is about 12% faster. `--speed` overrides it for one run. The animations follow the words, so any speed stays in sync.
 
 | Provider | Cost / setup | Quality | Notes |
 | --- | --- | --- | --- |
-| `kokoro` (default) | Free, runs locally, no key | Very good | Default voice `af_heart`. Others: `af_bella`, `am_michael`, `am_fenrir`, `bf_emma`. Gives exact word timings. |
+| `kokoro` (default) | Free, runs locally, no key | Very good | Voice set in `narration.json` (`am_michael`). Others: `af_heart`, `af_bella`, `am_fenrir`, `bf_emma`. Gives exact word timings. |
 | `openrouter` | Free tier, needs `OPENROUTER_API_KEY` | Excellent | Uses `fish-audio/s2.1-pro-free:free`. Fish Audio doesn't return word timings, so a local speech-recognition model (`pip install faster-whisper`) listens to each clip to find them. |
 | `edge` | Free, no key (`pip install edge-tts`) | OK | Microsoft Edge's online voices. Kept as a fallback. |
 

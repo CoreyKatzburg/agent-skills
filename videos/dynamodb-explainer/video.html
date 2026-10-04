@@ -268,7 +268,7 @@ SCENE_BUILDERS.hook = (root) => {
     <div class="abs" id="title-group" style="left:0;top:220px;width:1920px;text-align:center">
       <div id="logo">${databaseIcon(230)}</div>
       <div class="title-big">DynamoDB</div>
-      <div id="title-subtitle" style="font-size:44px;font-weight:600;margin-top:14px" class="muted">How it stays fast at any size</div>
+      <div id="title-subtitle" style="font-size:44px;font-weight:600;margin-top:14px" class="muted">How it works, and when to use it</div>
     </div>`;
   const primeChip = root.querySelector("#prime-chip");
   primeChip.style.left = "820px";
@@ -377,11 +377,11 @@ SCENE_BUILDERS.what = (root) => {
 
     reveal(sqlCard, ramp(time, at("nosql") - 0.2, 0.6));
     pop(root.querySelector("#fixed-tag"), time, at("fixed"));
-    pop(root.querySelector("#join-tag"), time, at("joins"));
-    joinArrow.set(ramp(time, at("joins"), 0.5));
-    sqlCard.style.filter = `saturate(${1 - 0.6 * ramp(time, at("instead"), 0.6)})`;
+    pop(root.querySelector("#join-tag"), time, at("joining"));
+    joinArrow.set(ramp(time, at("joining"), 0.5));
+    sqlCard.style.filter = `saturate(${1 - 0.6 * ramp(time, at("exchange"), 0.6)})`;
 
-    reveal(nosqlCard, ramp(time, at("instead") - 0.2, 0.6));
+    reveal(nosqlCard, ramp(time, at("exchange") - 0.2, 0.6));
     reveal(keyChip, ramp(time, at("idea"), 0.4), { rise: 10 });
     keyArrow.set(ramp(time, at("find"), 0.4));
     reveal(foundItem, ramp(time, at("piece"), 0.4), { scaleFrom: 0.9, rise: 0 });
@@ -433,7 +433,7 @@ SCENE_BUILDERS.items = (root) => {
     reveal(tableBox, ramp(time, at("tables") - 0.2, 0.6));
     cards.forEach((card, index) => reveal(card, ramp(time, at("items") + index * 0.18, 0.5)));
     const attributeGlow = pulse(time, at("attributes") - 0.1, 1.4);
-    reveal(attributeTag, ramp(time, at("attributes"), 0.4) * (1 - ramp(time, at("unlike"), 0.4)), { rise: 10 });
+    reveal(attributeTag, ramp(time, at("attributes"), 0.4) * (1 - ramp(time, at("difference"), 0.4)), { rise: 10 });
 
     const keyProgress = ramp(time, at("primary") - 0.3, 0.5);
     reveal(sheetGroup, ramp(time, at("spreadsheet"), 0.6) * (1 - keyProgress));
@@ -511,7 +511,7 @@ SCENE_BUILDERS.keys = (root) => {
   const ordersTable = root.querySelector("#orders-table");
 
   return (time, at) => {
-    reveal(parts[0], ramp(time, at("primary") - 0.2, 0.5));
+    reveal(parts[0], ramp(time, at("key") - 0.2, 0.5));
     reveal(parts[1], ramp(time, at("two"), 0.4));
     reveal(parts[2], ramp(time, at("partition") - 0.2, 0.5));
     reveal(parts[3], ramp(time, at("sort") - 0.4, 0.4));
@@ -693,7 +693,7 @@ SCENE_BUILDERS.scaling = (root) => {
     const count = stageCounts[stage];
     const previousCount = stageCounts[Math.max(0, stage - 1)];
     const childrenPerParent = count / previousCount;
-    const wave = pulse(time, at("divided") - 0.3, 1.6);
+    const wave = pulse(time, at("single") - 0.3, 1.6);
 
     tiles.forEach((tile, index) => {
       if (index >= count) { tile.style.display = "none"; return; }
@@ -707,7 +707,7 @@ SCENE_BUILDERS.scaling = (root) => {
       Object.assign(tile.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
       const hue = 222 + ((index * 7) % 40);
       const flash = stage > 0 ? pulse(time, stageCues[stage], 0.9) : 0;
-      const waveHere = pulse(time, at("divided") - 0.3 + (index % 8) * 0.08, 1.0);
+      const waveHere = pulse(time, at("single") - 0.3 + (index % 8) * 0.08, 1.0);
       tile.style.background = `hsl(${hue} 70% ${46 + 14 * flash + 14 * waveHere}%)`;
       tile.style.fontSize = `${Math.max(14, Math.min(44, width / 5))}px`;
       tile.textContent = width > 90 ? `P${index + 1}` : "";
@@ -910,7 +910,7 @@ SCENE_BUILDERS.reading = (root) => {
       reveal(card, ramp(time, at(methods[index].cue) - 0.3, 0.5));
       card.style.opacity = parseFloat(card.style.opacity) * (1 - 0.55 * indexProgress);
     });
-    const verdictCues = [at("fastest"), at("march") + 0.3, at("costly")];
+    const verdictCues = [at("fastest"), at("march") + 0.3, at("expensive")];
     methodCards.forEach((card, index) => pop(card.querySelector(".verdict"), time, verdictCues[index] - 0.2));
 
     // GetItem lights one tile; Query lights part of one column; Scan sweeps everything.
@@ -931,7 +931,7 @@ SCENE_BUILDERS.reading = (root) => {
     reveal(indexSection, indexProgress);
     indexArrow.set(ramp(time, at("copy") - 0.2, 0.6));
     const indexCard = root.querySelector("#index-card");
-    reveal(indexCard, ramp(time, at("organized") - 0.3, 0.5));
+    reveal(indexCard, ramp(time, at("organized", 2) - 0.3, 0.5));
     reveal(root.querySelector("#sync-label"), ramp(time, at("sync") - 0.3, 0.4), { rise: 8 });
     indexCard.style.boxShadow = `0 0 ${50 * pulse(time, at("sync"), 1.4)}px rgba(63,213,240,0.5)`;
   };
@@ -983,13 +983,13 @@ SCENE_BUILDERS.hot = (root) => {
     keyValue.textContent = spreadPhase > 0.5 ? "user ID  (u-1842, u-0937, …)" : crowdedPhase > 0.5 ? "today's date  (2026-10-04)" : "?";
     keyValue.style.color = spreadPhase > 0.5 ? "var(--green)" : crowdedPhase > 0.5 ? "var(--red)" : "var(--gold)";
 
-    moveDots(crowdedDots, time, crowdedPhase * (1 - spreadPhase) * ramp(time, at("traffic") - 0.3, 0.5), () => 1);
+    moveDots(crowdedDots, time, crowdedPhase * (1 - spreadPhase) * ramp(time, at("lands") - 0.3, 0.5), () => 1);
     moveDots(spreadDots, time, spreadPhase, (index) => (index * 7) % 4);
 
     servers.forEach((server, index) => {
       const crowdedLoad = index === 1 ? 100 : 4;
       const spreadLoad = [27, 24, 26, 23][index];
-      const load = lerp(lerp(2, crowdedLoad, ramp(time, at("traffic"), 1.0)), spreadLoad, ramp(time, at("spreads"), 1.0));
+      const load = lerp(lerp(2, crowdedLoad, ramp(time, at("lands"), 1.0)), spreadLoad, ramp(time, at("spreads"), 1.0));
       const fill = server.querySelector(".meter-fill");
       fill.style.width = `${load}%`;
       fill.style.background = load > 70 ? "var(--red)" : "var(--green)";
@@ -1044,19 +1044,47 @@ SCENE_BUILDERS.pricing = (root) => {
   };
 };
 
+SCENE_BUILDERS.tradeoffs = (root) => {
+  const strengths = [["⚡", "Fast at any size", "fast"], ["🧰", "No servers to manage", "servers"], ["🛡️", "Survives failures on its own", "failures"], ["💳", "Pay only for what you use", "pay"]];
+  const weaknesses = [["🧭", "You must know your questions up front", "questions"], ["🔗", "No joins between tables", "joins"], ["🔧", "Changing how you read later is hard", "changing"]];
+  const listRows = (rows, className) => rows.map(([icon, text]) => `<div class="bullet ${className}" style="font-size:30px;height:96px;margin-top:16px;padding:0 26px;border-radius:18px;background:var(--panel-raised);border:2px solid var(--line)"><span style="font-size:40px">${icon}</span>${text}</div>`).join("");
+  root.innerHTML = `
+    <div class="card" id="strengths-card" style="left:140px;top:160px;width:780px;height:590px;padding:30px 36px;border-color:rgba(61,220,151,0.5)">
+      <div class="card-title" style="color:var(--green)">💪 Strengths</div>
+      ${listRows(strengths, "strength-row")}
+    </div>
+    <div class="card" id="weaknesses-card" style="left:1000px;top:160px;width:780px;height:590px;padding:30px 36px;border-color:rgba(255,107,129,0.5)">
+      <div class="card-title" style="color:var(--red)">⚠ Weaknesses</div>
+      ${listRows(weaknesses, "weakness-row")}
+    </div>
+    <div class="abs" id="same-design" style="left:0;width:1920px;top:780px;text-align:center">
+      <span class="chip info" style="font-size:30px">🔑 Both sides come from one choice: everything is organized by key</span>
+    </div>`;
+  const strengthRows = [...root.querySelectorAll(".strength-row")];
+  const weaknessRows = [...root.querySelectorAll(".weakness-row")];
+  return (time, at) => {
+    reveal(root.querySelector("#strengths-card"), ramp(time, at("strengths") - 0.3, 0.5));
+    strengthRows.forEach((row, index) => reveal(row, ramp(time, at(strengths[index][2]) - 0.25, 0.4), { rise: 14 }));
+    reveal(root.querySelector("#weaknesses-card"), ramp(time, at("weaknesses") - 0.3, 0.5));
+    weaknessRows.forEach((row, index) => reveal(row, ramp(time, at(weaknesses[index][2]) - 0.25, 0.4), { rise: 14 }));
+    reveal(root.querySelector("#same-design"), ramp(time, at("design") - 0.2, 0.5), { scaleFrom: 0.9 });
+  };
+};
+
 SCENE_BUILDERS.fit = (root) => {
   const useCases = [["🛒", "Shopping carts", "shopping"], ["👤", "User profiles", "profiles"], ["🏆", "Game leaderboards", "leaderboards"], ["🔐", "Login sessions", "sessions"]];
   root.innerHTML = `
     <div class="card" id="good-card" style="left:140px;top:160px;width:860px;height:680px;padding:30px 40px;border-color:rgba(61,220,151,0.5)">
-      <div class="card-title" style="color:var(--green)">✓ Great fit</div>
+      <div class="card-title" style="color:var(--green)">✓ Use it when</div>
       <div class="bullet fit-point" style="margin-top:20px;font-size:28px">🧭 you know your lookups ahead of time</div>
-      <div class="bullet fit-point" style="margin-top:10px;font-size:28px">🚀 you need speed at any size</div>
-      ${useCases.map(([emoji, label], index) => `<div class="use-tile" style="left:${40 + (index % 2) * 400}px;top:${270 + Math.floor(index / 2) * 180}px;width:370px"><span class="emoji">${emoji}</span>${label}</div>`).join("")}
+      <div class="bullet fit-point" style="margin-top:10px;font-size:28px">🚀 you need it fast at any size</div>
+      ${useCases.map(([emoji, label], index) => `<div class="use-tile" style="left:${40 + (index % 2) * 400}px;top:${250 + Math.floor(index / 2) * 170}px;width:370px"><span class="emoji">${emoji}</span>${label}</div>`).join("")}
+      <span class="tag warn" id="simple-key-tag" style="left:40px;top:604px">🔑 each one is fetched by one simple key</span>
     </div>
     <div class="card" id="weak-card" style="left:1060px;top:160px;width:720px;height:680px;padding:30px 40px;border-color:rgba(255,197,61,0.5)">
-      <div class="card-title" style="color:var(--gold)">⚠ Weaker fit</div>
+      <div class="card-title" style="color:var(--gold)">✕ Skip it when</div>
       <div class="bullet weak-point" style="margin-top:20px;font-size:28px">🔗 complex joins across tables</div>
-      <div class="bullet weak-point" style="margin-top:10px;font-size:28px">❓ new questions you didn't plan for</div>
+      <div class="bullet weak-point" style="margin-top:10px;font-size:28px">❓ one-off questions you didn't plan for</div>
       <div class="muted" id="better-label" style="font-size:24px;font-weight:700;margin-top:56px">BETTER TOOLS FOR THOSE</div>
       <div class="use-tile alternative" style="position:relative;left:0;top:0;margin-top:16px;width:640px;height:120px;flex-direction:row;gap:20px"><span class="emoji">🐘</span>Relational database <span class="muted" style="font-weight:600">e.g. PostgreSQL</span></div>
       <div class="use-tile alternative" style="position:relative;left:0;top:0;margin-top:16px;width:640px;height:120px;flex-direction:row;gap:20px"><span class="emoji">🏬</span>Data warehouse <span class="muted" style="font-weight:600">e.g. Redshift</span></div>
@@ -1067,11 +1095,12 @@ SCENE_BUILDERS.fit = (root) => {
   const alternatives = [...root.querySelectorAll(".alternative")];
 
   return (time, at) => {
-    reveal(root.querySelector("#good-card"), ramp(time, at("shines") - 0.3, 0.5));
+    reveal(root.querySelector("#good-card"), ramp(time, at("use") - 0.3, 0.5));
     reveal(fitPoints[0], ramp(time, at("know") - 0.2, 0.4), { rise: 10 });
-    reveal(fitPoints[1], ramp(time, at("speed") - 0.2, 0.4), { rise: 10 });
+    reveal(fitPoints[1], ramp(time, at("fast") - 0.2, 0.4), { rise: 10 });
+    pop(root.querySelector("#simple-key-tag"), time, at("simple") - 0.2);
     useTiles.forEach((tile, index) => pop(tile, time, at(useCases[index][2]) - 0.25));
-    reveal(root.querySelector("#weak-card"), ramp(time, at("weaker") - 0.3, 0.5));
+    reveal(root.querySelector("#weak-card"), ramp(time, at("skip") - 0.3, 0.5));
     reveal(weakPoints[0], ramp(time, at("joins") - 0.3, 0.4), { rise: 10 });
     reveal(weakPoints[1], ramp(time, at("questions") - 0.3, 0.4), { rise: 10 });
     reveal(root.querySelector("#better-label"), ramp(time, at("relational") - 0.4, 0.4), { rise: 6 });

@@ -39,7 +39,7 @@ LEAD_IN_SECONDS = 0.35
 END_CARD_EXTRA_SECONDS = 3.0
 
 DEFAULT_VOICES = {
-    "kokoro": "af_heart",
+    "kokoro": "am_michael",
     "openrouter": None,  # let Fish Audio use its default narrator voice
     "edge": "en-US-AndrewNeural",
 }
@@ -274,7 +274,7 @@ def main():
 
     narration = json.loads((PROJECT_FOLDER / "narration.json").read_text())
     AUDIO_FOLDER.mkdir(parents=True, exist_ok=True)
-    voice_name = arguments.voice or DEFAULT_VOICES[arguments.provider]
+    voice_name = arguments.voice or narration.get(f"{arguments.provider}_voice") or DEFAULT_VOICES[arguments.provider]
     speaking_speed = arguments.speed or narration.get("speaking_speed", 1.0)
     voice = VOICE_PROVIDERS[arguments.provider](voice_name, speaking_speed)
 
