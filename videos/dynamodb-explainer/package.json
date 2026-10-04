@@ -1,0 +1,13 @@
+{
+  "name": "dynamodb-explainer-video",
+  "private": true,
+  "description": "Source for an animated, narrated video that explains Amazon DynamoDB.",
+  "scripts": {
+    "voiceover": "python3 make_voiceover.py",
+    "render": "node render_video.js"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.0.0",
+    "@fontsource/jetbrains-mono": "^5.0.0"
+  }
+}

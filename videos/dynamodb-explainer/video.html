@@ -1,0 +1,1230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How DynamoDB Works</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @font-face { font-family: "Inter"; font-weight: 400; src: url("node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Inter"; font-weight: 600; src: url("node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Inter"; font-weight: 700; src: url("node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Inter"; font-weight: 800; src: url("node_modules/@fontsource/inter/files/inter-latin-800-normal.woff2") format("woff2"); }
+  @font-face { font-family: "JetBrains Mono"; font-weight: 400; src: url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "JetBrains Mono"; font-weight: 600; src: url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2") format("woff2"); }
+
+  :root {
+    --bg: #0a0f1e;
+    --panel: #111a31;
+    --panel-raised: #17223f;
+    --line: #26345a;
+    --text: #eef2fb;
+    --muted: #8e9aba;
+    --blue: #5b84ff;
+    --blue-soft: rgba(91, 132, 255, 0.16);
+    --violet: #a27bff;
+    --violet-soft: rgba(162, 123, 255, 0.16);
+    --green: #3ddc97;
+    --green-soft: rgba(61, 220, 151, 0.14);
+    --red: #ff6b81;
+    --red-soft: rgba(255, 107, 129, 0.16);
+    --gold: #ffc53d;
+    --gold-soft: rgba(255, 197, 61, 0.16);
+    --cyan: #3fd5f0;
+    --orange: #ff9f43;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #000; overflow: hidden; }
+  body { font-family: "Inter", "Noto Color Emoji", sans-serif; color: var(--text); }
+
+  #stage {
+    position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden;
+    transform-origin: 0 0;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(91, 132, 255, 0.16), transparent 42%),
+      radial-gradient(circle at 85% 88%, rgba(162, 123, 255, 0.13), transparent 45%),
+      var(--bg);
+  }
+  #stage::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1.5px, transparent 1.5px);
+    background-size: 40px 40px;
+  }
+
+  .scene { position: absolute; inset: 0; display: none; }
+  .overlay { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+  .abs { position: absolute; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+  .muted { color: var(--muted); }
+
+  .card {
+    position: absolute; background: var(--panel); border: 2px solid var(--line); border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+  .card-title { font-size: 34px; font-weight: 800; letter-spacing: -0.01em; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 12px; padding: 12px 24px; border-radius: 999px;
+    font-weight: 700; font-size: 30px; white-space: nowrap;
+  }
+  .tag {
+    position: absolute; padding: 8px 18px; border-radius: 12px; font-size: 26px; font-weight: 700; white-space: nowrap;
+  }
+  .badge-pk { background: var(--blue-soft); color: var(--blue); border: 2px solid var(--blue); }
+  .badge-sk { background: var(--violet-soft); color: var(--violet); border: 2px solid var(--violet); }
+  .good { background: var(--green-soft); color: var(--green); border: 2px solid var(--green); }
+  .bad { background: var(--red-soft); color: var(--red); border: 2px solid var(--red); }
+  .warn { background: var(--gold-soft); color: var(--gold); border: 2px solid var(--gold); }
+  .info { background: var(--blue-soft); color: var(--blue); border: 2px solid var(--blue); }
+
+  /* Chrome shared by every scene */
+  #scene-label { position: absolute; left: 80px; top: 52px; display: flex; align-items: baseline; gap: 20px; }
+  #scene-number { font-family: "JetBrains Mono", monospace; font-size: 26px; color: var(--blue); font-weight: 600; }
+  #scene-title { font-size: 30px; font-weight: 700; color: var(--text); }
+  #progress { position: absolute; left: 0; top: 0; width: 1920px; height: 8px; display: flex; gap: 4px; }
+  .progress-segment { height: 100%; flex-grow: 1; background: rgba(255, 255, 255, 0.08); position: relative; overflow: hidden; }
+  .progress-fill { position: absolute; inset: 0; background: linear-gradient(90deg, var(--blue), var(--violet)); transform-origin: 0 0; }
+  #brand { position: absolute; right: 80px; top: 50px; font-size: 24px; font-weight: 700; color: var(--muted); display: flex; gap: 12px; align-items: center; }
+
+  #captions {
+    position: absolute; left: 160px; width: 1600px; top: 922px; text-align: center;
+    font-size: 44px; font-weight: 700; line-height: 1.25; letter-spacing: -0.005em;
+  }
+  #captions .caption-box {
+    display: inline-block; padding: 14px 32px; border-radius: 18px; background: rgba(5, 8, 18, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  #captions .word { color: rgba(238, 242, 251, 0.55); }
+  #captions .word.spoken { color: var(--text); }
+  #captions .word.current { color: var(--gold); }
+
+  /* Scene-specific pieces */
+  .big-number { font-size: 168px; font-weight: 800; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+  .title-big { font-size: 150px; font-weight: 800; letter-spacing: -0.04em; }
+  .row-line { display: flex; align-items: center; gap: 22px; font-size: 34px; font-weight: 600; height: 76px; position: relative; }
+  .strike { position: absolute; left: 74px; top: 38px; height: 5px; background: var(--red); border-radius: 3px; transform-origin: 0 50%; }
+  .mini-grid { position: absolute; display: grid; gap: 4px; }
+  .mini-grid div { background: var(--panel-raised); border-radius: 6px; height: 34px; font-size: 18px; color: var(--muted); display: flex; align-items: center; justify-content: center; font-family: "JetBrains Mono", monospace; }
+  .mini-grid .head { background: rgba(91, 132, 255, 0.25); color: var(--text); font-weight: 600; }
+  .item-card { position: absolute; background: var(--panel-raised); border: 2px solid var(--line); border-radius: 20px; padding: 22px 26px; }
+  .attribute { display: flex; gap: 16px; font-size: 26px; padding: 9px 12px; border-radius: 10px; border: 2px solid transparent; }
+  .attribute .name { font-family: "JetBrains Mono", monospace; color: var(--muted); min-width: 170px; }
+  .attribute .value { font-family: "JetBrains Mono", monospace; color: var(--text); }
+  .sheet { position: absolute; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .sheet div { height: 44px; background: var(--panel-raised); border-radius: 6px; font-family: "JetBrains Mono", monospace; font-size: 20px; display: flex; align-items: center; padding: 0 12px; color: var(--text); }
+  .sheet .head { background: rgba(255, 255, 255, 0.1); font-weight: 600; color: var(--muted); }
+  .sheet .empty { color: var(--red); justify-content: center; }
+  .table-row { position: absolute; left: 0; width: 1200px; height: 58px; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; border-radius: 12px; font-family: "JetBrains Mono", monospace; font-size: 28px; padding: 0 28px; }
+  .server { position: absolute; background: var(--panel); border: 2px solid var(--line); border-radius: 22px; }
+  .server-head { font-size: 28px; font-weight: 800; padding: 18px 22px 8px; }
+  .server-lights { position: absolute; right: 22px; top: 26px; display: flex; gap: 8px; }
+  .server-lights i { width: 12px; height: 12px; border-radius: 50%; background: var(--green); display: block; }
+  .slots { position: absolute; left: 22px; right: 22px; bottom: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .slots div { height: 34px; border-radius: 8px; background: var(--panel-raised); font-family: "JetBrains Mono", monospace; font-size: 18px; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .tile { position: absolute; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: rgba(255, 255, 255, 0.9); font-family: "JetBrains Mono", monospace; }
+  .dot { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; }
+  .meter { position: absolute; left: 22px; right: 22px; bottom: 22px; height: 26px; border-radius: 13px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+  .meter-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 13px; }
+  .bullet { display: flex; align-items: center; gap: 18px; font-size: 32px; font-weight: 600; }
+  .use-tile { position: absolute; width: 330px; height: 150px; border-radius: 20px; background: var(--panel-raised); border: 2px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-size: 28px; font-weight: 700; }
+  .use-tile .emoji { font-size: 54px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="scenes"></div>
+  <div id="progress"></div>
+  <div id="scene-label"><span id="scene-number"></span><span id="scene-title"></span></div>
+  <div id="brand"></div>
+  <div id="captions"></div>
+</div>
+
+<script src="build/timeline.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// Animation helpers. Every frame is drawn from the current time alone, so the
+// renderer can jump to any moment and get the exact same picture every time.
+// ---------------------------------------------------------------------------
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
+const lerp = (from, to, progress) => from + (to - from) * progress;
+const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+const easeOutBack = (x) => { const overshoot = 1.70158; return 1 + (overshoot + 1) * Math.pow(x - 1, 3) + overshoot * Math.pow(x - 1, 2); };
+
+/** 0 before `start`, 1 after `start + duration`, smooth in between. */
+function ramp(time, start, duration = 0.5, easing = easeInOut) {
+  if (duration <= 0) return time >= start ? 1 : 0;
+  return easing(clamp01((time - start) / duration));
+}
+/** A single smooth bump from 0 up to 1 and back to 0 over `duration`. */
+function pulse(time, start, duration = 1) {
+  const progress = (time - start) / duration;
+  return progress <= 0 || progress >= 1 ? 0 : Math.sin(Math.PI * progress);
+}
+/** Fade an element in while sliding it up into place (optionally growing from smaller). */
+function reveal(element, progress, { rise = 26, scaleFrom = 1, extra = "" } = {}) {
+  element.style.opacity = progress;
+  element.style.visibility = progress <= 0.001 ? "hidden" : "visible";
+  element.style.transform = `translateY(${(1 - progress) * rise}px) scale(${lerp(scaleFrom, 1, progress)}) ${extra}`;
+}
+/** Pop-in: like reveal but with a little overshoot, good for badges and checkmarks. */
+function pop(element, time, start, duration = 0.5) {
+  const progress = clamp01((time - start) / duration);
+  element.style.opacity = clamp01(progress * 2);
+  element.style.visibility = progress <= 0 ? "hidden" : "visible";
+  element.style.transform = `scale(${progress <= 0 ? 0.6 : lerp(0.6, 1, easeOutBack(progress))})`;
+}
+const formatNumber = (value) => Math.round(value).toLocaleString("en-US");
+
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+/** An arrow that can be "drawn on" from 0 to 1, with a moving point helper for packets. */
+function createArrow(svg, pathData, { color = "var(--blue)", width = 5, dashed = false } = {}) {
+  const path = document.createElementNS(SVG_NAMESPACE, "path");
+  path.setAttribute("d", pathData);
+  path.style.fill = "none";
+  path.style.stroke = color;
+  path.style.strokeWidth = width;
+  path.style.strokeLinecap = "round";
+  svg.appendChild(path);
+  const length = path.getTotalLength();
+  const head = document.createElementNS(SVG_NAMESPACE, "polygon");
+  head.setAttribute("points", "0,-12 24,0 0,12");
+  head.style.fill = color;
+  svg.appendChild(head);
+  const tip = path.getPointAtLength(length);
+  const nearTip = path.getPointAtLength(Math.max(0, length - 6));
+  const angle = (Math.atan2(tip.y - nearTip.y, tip.x - nearTip.x) * 180) / Math.PI;
+  head.setAttribute("transform", `translate(${tip.x},${tip.y}) rotate(${angle}) translate(-20,0)`);
+  const dashPattern = dashed ? "14 14" : `${length} ${length}`;
+  return {
+    set(progress, opacity = 1) {
+      if (dashed) {
+        path.style.strokeDasharray = dashPattern;
+        path.style.opacity = progress * opacity;
+        head.style.opacity = progress * opacity;
+        return;
+      }
+      path.style.strokeDasharray = dashPattern;
+      path.style.strokeDashoffset = length * (1 - progress);
+      path.style.opacity = progress > 0 ? opacity : 0;
+      head.style.opacity = clamp01((progress - 0.85) / 0.15) * opacity;
+    },
+    pointAt(progress) { return path.getPointAtLength(length * clamp01(progress)); },
+  };
+}
+function placeAt(element, point) { element.style.left = `${point.x}px`; element.style.top = `${point.y}px`; }
+
+/** The DynamoDB-style logo: three stacked database discs with a lightning bolt. */
+let databaseIconCount = 0;
+function databaseIcon(size, color = "#5b84ff") {
+  const gradientId = `disc-gradient-${databaseIconCount++}`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 120 120">
+    <defs><linearGradient id="${gradientId}" x1="0" x2="1"><stop offset="0" stop-color="${color}"/><stop offset="1" stop-color="#a27bff"/></linearGradient></defs>
+    <path d="M14 30 v60 c0 9 21 16 46 16 s46 -7 46 -16 v-60" fill="url(#${gradientId})" opacity="0.9"/>
+    <ellipse cx="60" cy="30" rx="46" ry="16" fill="#9fb6ff"/>
+    <path d="M14 50 c0 9 21 16 46 16 s46 -7 46 -16" fill="none" stroke="#0a0f1e" stroke-width="4" opacity="0.55"/>
+    <path d="M14 70 c0 9 21 16 46 16 s46 -7 46 -16" fill="none" stroke="#0a0f1e" stroke-width="4" opacity="0.55"/>
+    <path d="M66 38 L46 72 H60 L54 98 L78 60 H63 Z" fill="#ffc53d" stroke="#0a0f1e" stroke-width="3" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+/** Finds the moment a word (or phrase) is spoken in a scene. */
+function createCueFinder(scene) {
+  const keys = scene.words.map((word) => word.key);
+  return function at(phrase, occurrence = 1) {
+    const target = phrase.toLowerCase().replace(/[^a-z0-9]/g, "");
+    let found = 0;
+    for (let first = 0; first < keys.length; first++) {
+      let combined = "";
+      for (let last = first; last < keys.length && combined.length < target.length; last++) {
+        combined += keys[last];
+        if (combined === target) {
+          found += 1;
+          if (found === occurrence) return scene.words[first].start;
+        }
+      }
+    }
+    throw new Error(`Cue "${phrase}" #${occurrence} not found in scene "${scene.id}"`);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Scenes. Each one builds its pieces once, then returns an update(time, at)
+// function. `time` is seconds since the scene began; `at("word")` is the
+// moment that word is spoken, so animations land on the narration.
+// ---------------------------------------------------------------------------
+const SCENE_BUILDERS = {};
+
+SCENE_BUILDERS.hook = (root) => {
+  root.innerHTML = `
+    <div class="abs chip warn" id="prime-chip" style="left:0;top:200px;width:auto">🛒 Prime Day</div>
+    <div class="abs" id="counter-group" style="left:0;top:300px;width:1920px;text-align:center">
+      <div class="big-number mono" id="request-counter">0</div>
+      <div style="font-size:38px;font-weight:600" class="muted">requests per second at peak (Prime Day 2025)</div>
+    </div>
+    <div class="abs" id="speed-badge" style="left:0;width:1920px;top:640px;text-align:center">
+      <span class="chip good" style="font-size:36px">⏱ most answered in a few milliseconds</span>
+    </div>
+    <div id="dots"></div>
+    <div class="abs" id="title-group" style="left:0;top:220px;width:1920px;text-align:center">
+      <div id="logo">${databaseIcon(230)}</div>
+      <div class="title-big">DynamoDB</div>
+      <div id="title-subtitle" style="font-size:44px;font-weight:600;margin-top:14px" class="muted">How it stays fast at any size</div>
+    </div>`;
+  const primeChip = root.querySelector("#prime-chip");
+  primeChip.style.left = "820px";
+  const counterGroup = root.querySelector("#counter-group");
+  const requestCounter = root.querySelector("#request-counter");
+  const speedBadge = root.querySelector("#speed-badge");
+  const titleGroup = root.querySelector("#title-group");
+  const titleSubtitle = root.querySelector("#title-subtitle");
+  const dotsLayer = root.querySelector("#dots");
+  const dotCount = 46;
+  const dots = Array.from({ length: dotCount }, (_, index) => {
+    const dot = document.createElement("div");
+    dot.className = "dot";
+    dot.style.background = ["var(--blue)", "var(--violet)", "var(--cyan)"][index % 3];
+    dotsLayer.appendChild(dot);
+    return dot;
+  });
+
+  return (time, at) => {
+    const titleProgress = ramp(time, at("dynamodb") - 0.2, 0.7);
+    reveal(primeChip, ramp(time, at("prime") - 0.3, 0.5) * (1 - titleProgress));
+    reveal(counterGroup, ramp(time, at("systems"), 0.6) * (1 - titleProgress), { rise: 40 });
+    requestCounter.textContent = formatNumber(151_000_000 * ramp(time, at("hundred") - 0.4, 2.2, easeOut));
+    reveal(speedBadge, ramp(time, at("milliseconds") - 0.2, 0.5) * (1 - titleProgress));
+    reveal(titleGroup, titleProgress, { rise: 60, scaleFrom: 0.85 });
+    reveal(titleSubtitle, ramp(time, at("pulls") - 0.3, 0.6));
+
+    // Requests fly in from the left and land on the counter.
+    const streamStrength = ramp(time, at("systems"), 0.8) * (1 - ramp(time, at("dynamodb") - 0.4, 0.6));
+    dots.forEach((dot, index) => {
+      const lane = (index * 137) % 620;
+      const travel = (time * 0.55 + index / dotCount) % 1;
+      const startX = -40, startY = 140 + lane;
+      const endX = 960 + ((index * 53) % 300) - 150, endY = 400;
+      dot.style.left = `${lerp(startX, endX, easeInOut(travel))}px`;
+      dot.style.top = `${lerp(startY, endY, easeInOut(travel))}px`;
+      dot.style.opacity = streamStrength * Math.sin(Math.PI * travel) * 0.85;
+    });
+  };
+};
+
+SCENE_BUILDERS.what = (root) => {
+  const chores = [
+    ["🖥️", "Set up servers", "servers"],
+    ["📦", "Install software", "software"],
+    ["🩹", "Apply patches", "patches"],
+  ];
+  const yourJob = [["✅", "Create a table", "create"], ["✅", "Start saving data", "saving"]];
+  root.innerHTML = `
+    <div class="card" id="managed-card" style="left:140px;top:170px;width:740px;height:660px;padding:36px 40px">
+      <div class="card-title">AWS runs it for you</div>
+      <div class="muted" style="font-size:26px;margin:6px 0 22px">a fully managed service</div>
+      ${chores.map(([icon, label], index) => `<div class="row-line chore" data-index="${index}"><span style="width:52px">${icon}</span><span>${label}</span><div class="strike" style="width:${label.length * 18 + 20}px"></div><span class="no-mark" style="margin-left:auto;color:var(--red);font-size:40px">✕</span></div>`).join("")}
+      <div style="height:2px;background:var(--line);margin:18px 0"></div>
+      <div class="muted" style="font-size:24px;margin-bottom:6px">your part:</div>
+      ${yourJob.map(([icon, label]) => `<div class="row-line job"><span style="width:52px">${icon}</span><span>${label}</span></div>`).join("")}
+    </div>
+    <div class="card" id="sql-card" style="left:960px;top:170px;width:820px;height:310px;padding:28px 34px">
+      <div class="card-title" style="font-size:30px">Traditional SQL database</div>
+      <div class="mini-grid" style="left:34px;top:96px;width:330px;grid-template-columns:repeat(3,1fr)">
+        <div class="head">id</div><div class="head">name</div><div class="head">city</div>
+        <div>1</div><div>Ana</div><div>Lima</div><div>2</div><div>Ben</div><div>Oslo</div>
+      </div>
+      <div class="mini-grid" style="left:456px;top:96px;width:330px;grid-template-columns:repeat(3,1fr)">
+        <div class="head">order</div><div class="head">cust</div><div class="head">total</div>
+        <div>A1</div><div>1</div><div>$18</div><div>A2</div><div>2</div><div>$42</div>
+      </div>
+      <span class="tag bad" id="fixed-tag" style="left:34px;top:226px">fixed columns</span>
+      <span class="tag bad" id="join-tag" style="left:500px;top:226px">table joins</span>
+    </div>
+    <div class="card" id="nosql-card" style="left:960px;top:520px;width:820px;height:310px;padding:28px 34px">
+      <div class="card-title" style="font-size:30px">DynamoDB (NoSQL)</div>
+      <div class="abs chip warn mono" id="key-chip" style="left:34px;top:130px;font-size:28px">🔑 C-101</div>
+      <div class="item-card" id="found-item" style="left:420px;top:92px;width:360px;padding:16px 20px">
+        <div class="attribute"><span class="name" style="min-width:110px">Name</span><span class="value">Ana</span></div>
+        <div class="attribute"><span class="name" style="min-width:110px">City</span><span class="value">Lima</span></div>
+        <div class="attribute"><span class="name" style="min-width:110px">Orders</span><span class="value">2</span></div>
+      </div>
+      <span class="tag good" id="instant-tag" style="left:34px;top:236px">⚡ found by key, instantly</span>
+    </div>`;
+  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
+  svg.setAttribute("class", "overlay");
+  root.appendChild(svg);
+  const joinArrow = createArrow(svg, "M1300 300 C 1340 250, 1380 250, 1420 300", { color: "var(--red)", width: 4 });
+  const keyArrow = createArrow(svg, "M1222 674 L 1370 674", { color: "var(--gold)", width: 5 });
+
+  const managedCard = root.querySelector("#managed-card");
+  const choreRows = [...root.querySelectorAll(".chore")];
+  const jobRows = [...root.querySelectorAll(".job")];
+  const sqlCard = root.querySelector("#sql-card");
+  const nosqlCard = root.querySelector("#nosql-card");
+  const keyChip = root.querySelector("#key-chip");
+  const foundItem = root.querySelector("#found-item");
+
+  return (time, at) => {
+    reveal(managedCard, ramp(time, 0.1, 0.6));
+    choreRows.forEach((row, index) => {
+      const word = chores[index][2];
+      reveal(row, ramp(time, at("never") + index * 0.2, 0.4), { rise: 14 });
+      const strikeProgress = ramp(time, at(word) + 0.15, 0.35);
+      row.querySelector(".strike").style.transform = `scaleX(${strikeProgress})`;
+      row.querySelector(".no-mark").style.opacity = strikeProgress;
+      row.style.color = strikeProgress > 0.5 ? "var(--muted)" : "var(--text)";
+    });
+    jobRows.forEach((row, index) => reveal(row, ramp(time, at(yourJob[index][2]) - 0.1, 0.4), { rise: 14 }));
+
+    reveal(sqlCard, ramp(time, at("nosql") - 0.2, 0.6));
+    pop(root.querySelector("#fixed-tag"), time, at("fixed"));
+    pop(root.querySelector("#join-tag"), time, at("joins"));
+    joinArrow.set(ramp(time, at("joins"), 0.5));
+    sqlCard.style.filter = `saturate(${1 - 0.6 * ramp(time, at("instead"), 0.6)})`;
+
+    reveal(nosqlCard, ramp(time, at("instead") - 0.2, 0.6));
+    reveal(keyChip, ramp(time, at("idea"), 0.4), { rise: 10 });
+    keyArrow.set(ramp(time, at("find"), 0.4));
+    reveal(foundItem, ramp(time, at("piece"), 0.4), { scaleFrom: 0.9, rise: 0 });
+    foundItem.style.borderColor = ramp(time, at("instantly"), 0.3) > 0.5 ? "var(--gold)" : "var(--line)";
+    foundItem.style.boxShadow = `0 0 ${40 * pulse(time, at("instantly"), 1.2)}px rgba(255,197,61,0.6)`;
+    pop(root.querySelector("#instant-tag"), time, at("instantly"));
+    keyChip.style.boxShadow = `0 0 ${36 * pulse(time, at("key"), 1)}px rgba(255,197,61,0.8)`;
+  };
+};
+
+SCENE_BUILDERS.items = (root) => {
+  const customers = [
+    [["CustomerId", '"C-101"'], ["Name", '"Ana Silva"'], ["Phone", '"555-0142"']],
+    [["CustomerId", '"C-102"'], ["Name", '"Ben Okafor"'], ["Addresses", '["12 Oak St",'], ["", ' "9 Pier Rd"]']],
+    [["CustomerId", '"C-103"'], ["Name", '"Chen Wei"'], ["Email", '"chen@mail.com"'], ["VIP", "true"]],
+  ];
+  root.innerHTML = `
+    <div class="card" id="table-box" style="left:120px;top:150px;width:1680px;height:720px">
+      <div class="abs chip info" style="left:36px;top:-30px;background:var(--panel)">🗂️ Table: Customers</div>
+    </div>
+    ${customers.map((attributes, cardIndex) => `
+      <div class="item-card customer" style="left:${170 + cardIndex * 540}px;top:220px;width:500px;height:300px">
+        <div class="muted" style="font-size:22px;font-weight:700;margin:0 0 8px 12px">ITEM ${cardIndex + 1}</div>
+        ${attributes.map(([name, value]) => `<div class="attribute" data-name="${name}"><span class="name">${name}</span><span class="value">${value}</span></div>`).join("")}
+      </div>`).join("")}
+    <div class="abs" id="sheet-group" style="left:170px;top:560px;width:1580px">
+      <div class="muted" style="font-size:24px;font-weight:700;margin-bottom:10px">A spreadsheet would force the same columns on everyone:</div>
+      <div class="sheet" style="position:relative;width:1580px">
+        <div class="head">CustomerId</div><div class="head">Name</div><div class="head">Phone</div><div class="head">Addresses</div><div class="head">Email</div><div class="head">VIP</div>
+        <div>C-101</div><div>Ana Silva</div><div>555-0142</div><div class="empty">empty</div><div class="empty">empty</div><div class="empty">empty</div>
+        <div>C-102</div><div>Ben Okafor</div><div class="empty">empty</div><div>12 Oak St, …</div><div class="empty">empty</div><div class="empty">empty</div>
+        <div>C-103</div><div>Chen Wei</div><div class="empty">empty</div><div class="empty">empty</div><div>chen@mail.com</div><div>true</div>
+      </div>
+    </div>
+    <div class="abs" id="key-banner" style="left:0;width:1920px;top:640px;text-align:center">
+      <span class="chip warn" style="font-size:40px;padding:20px 40px">🔑 Every item must have a primary key</span>
+    </div>
+    <span class="tag info" id="attribute-tag" style="left:1300px;top:130px;background:var(--panel)">← each line is an attribute</span>`;
+  const tableBox = root.querySelector("#table-box");
+  const cards = [...root.querySelectorAll(".customer")];
+  const sheetGroup = root.querySelector("#sheet-group");
+  const emptyCells = [...root.querySelectorAll(".sheet .empty")];
+  const keyBanner = root.querySelector("#key-banner");
+  const attributeTag = root.querySelector("#attribute-tag");
+  const findAttribute = (cardIndex, name) => cards[cardIndex].querySelector(`[data-name="${name}"]`);
+  const allAttributeRows = [...root.querySelectorAll(".attribute")];
+
+  return (time, at) => {
+    reveal(tableBox, ramp(time, at("tables") - 0.2, 0.6));
+    cards.forEach((card, index) => reveal(card, ramp(time, at("items") + index * 0.18, 0.5)));
+    const attributeGlow = pulse(time, at("attributes") - 0.1, 1.4);
+    reveal(attributeTag, ramp(time, at("attributes"), 0.4) * (1 - ramp(time, at("unlike"), 0.4)), { rise: 10 });
+
+    const keyProgress = ramp(time, at("primary") - 0.3, 0.5);
+    reveal(sheetGroup, ramp(time, at("spreadsheet"), 0.6) * (1 - keyProgress));
+    const emptyFlash = ramp(time, at("matching"), 0.3);
+    emptyCells.forEach((cell) => { cell.style.background = `rgba(255,107,129,${0.08 + 0.2 * emptyFlash})`; cell.style.opacity = lerp(0.25, 1, emptyFlash); });
+
+    // Every attribute row's look is worked out fresh each frame from the cues.
+    const uniqueRows = [
+      { row: findAttribute(0, "Phone"), cue: at("phone") },
+      { row: findAttribute(1, "Addresses"), cue: at("addresses") },
+      { row: findAttribute(1, ""), cue: at("addresses") },
+    ];
+    allAttributeRows.forEach((row) => {
+      let borderColor = "transparent";
+      let background = `rgba(91,132,255,${0.25 * attributeGlow})`;
+      let nameColor = "var(--muted)";
+      const unique = uniqueRows.find((entry) => entry.row === row);
+      if (unique && time >= unique.cue && keyProgress < 0.5) {
+        borderColor = "var(--cyan)";
+        background = "rgba(63,213,240,0.12)";
+      }
+      if (row.dataset.name === "CustomerId" && keyProgress > 0.5) {
+        borderColor = "var(--gold)";
+        background = "var(--gold-soft)";
+        nameColor = "var(--gold)";
+      }
+      row.style.borderColor = borderColor;
+      row.style.background = background;
+      row.querySelector(".name").style.color = nameColor;
+    });
+    reveal(keyBanner, keyProgress, { scaleFrom: 0.9 });
+  };
+};
+
+SCENE_BUILDERS.keys = (root) => {
+  const orders = [
+    { customer: "C-102", date: "2026-03-14", total: "$42.10" },
+    { customer: "C-101", date: "2026-03-02", total: "$18.99" },
+    { customer: "C-103", date: "2026-02-11", total: "$99.00" },
+    { customer: "C-101", date: "2026-01-09", total: "$7.50" },
+    { customer: "C-102", date: "2026-01-21", total: "$64.25" },
+    { customer: "C-101", date: "2026-02-17", total: "$23.40" },
+  ];
+  const customerOrder = ["C-101", "C-102", "C-103"];
+  const groupColors = { "C-101": "rgba(91,132,255,0.2)", "C-102": "rgba(162,123,255,0.2)", "C-103": "rgba(61,220,151,0.18)" };
+  // Where each row sits after grouping (same customer together) and after sorting by date.
+  const groupedPosition = [...orders.keys()].sort((a, b) => customerOrder.indexOf(orders[a].customer) - customerOrder.indexOf(orders[b].customer) || a - b);
+  const sortedPosition = [...orders.keys()].sort((a, b) => customerOrder.indexOf(orders[a].customer) - customerOrder.indexOf(orders[b].customer) || orders[a].date.localeCompare(orders[b].date));
+  const rowHeight = 64;
+
+  root.innerHTML = `
+    <div class="abs chip warn" id="eq-primary" style="left:360px;top:160px;font-size:34px">🔑 Primary key</div>
+    <div class="abs" id="eq-equals" style="left:710px;top:164px;font-size:50px;font-weight:800">=</div>
+    <div class="abs chip badge-pk" id="eq-partition" style="left:790px;top:160px;font-size:34px">Partition key</div>
+    <div class="abs" id="eq-plus" style="left:1120px;top:164px;font-size:50px;font-weight:800">+</div>
+    <div class="abs chip badge-sk" id="eq-sort" style="left:1200px;top:160px;font-size:34px">Sort key <span style="font-weight:600;opacity:.75">(optional)</span></div>
+    <div class="abs muted" id="partition-note" style="left:720px;top:244px;width:400px;text-align:center;font-size:26px;font-weight:600">decides <b style="color:var(--text)">where</b> an item is stored</div>
+    <div class="abs muted" id="sort-note" style="left:1120px;top:244px;width:520px;text-align:center;font-size:26px;font-weight:600"><b style="color:var(--text)">orders</b> items that share a partition key</div>
+    <div class="abs" id="orders-table" style="left:400px;top:330px;width:1200px">
+      <div class="muted" style="font-size:24px;font-weight:700;margin-bottom:10px">🗂️ Table: Orders</div>
+      <div class="table-row" style="position:relative;background:var(--panel-raised);font-family:Inter;font-weight:700;font-size:26px">
+        <span>CustomerId <span class="chip badge-pk" id="pk-badge" style="font-size:18px;padding:4px 12px">PARTITION</span></span>
+        <span>OrderDate <span class="chip badge-sk" id="sk-badge" style="font-size:18px;padding:4px 12px">SORT</span></span>
+        <span>Total</span>
+      </div>
+      <div style="position:relative;height:${rowHeight * orders.length}px;margin-top:8px" id="order-rows">
+        ${orders.map((order) => `<div class="table-row order-row"><span>${order.customer}</span><span>${order.date}</span><span class="muted">${order.total}</span></div>`).join("")}
+      </div>
+    </div>
+    ${customerOrder.map((customer) => `<div class="abs group-label mono" data-customer="${customer}" style="left:90px;width:290px;text-align:right;font-size:24px;font-weight:600;white-space:nowrap"></div>`).join("")}`;
+
+  const parts = ["#eq-primary", "#eq-equals", "#eq-partition", "#eq-plus", "#eq-sort"].map((selector) => root.querySelector(selector));
+  const rows = [...root.querySelectorAll(".order-row")];
+  const groupLabels = [...root.querySelectorAll(".group-label")];
+  const ordersTable = root.querySelector("#orders-table");
+
+  return (time, at) => {
+    reveal(parts[0], ramp(time, at("primary") - 0.2, 0.5));
+    reveal(parts[1], ramp(time, at("two"), 0.4));
+    reveal(parts[2], ramp(time, at("partition") - 0.2, 0.5));
+    reveal(parts[3], ramp(time, at("sort") - 0.4, 0.4));
+    reveal(parts[4], ramp(time, at("sort") - 0.2, 0.5));
+    reveal(root.querySelector("#partition-note"), ramp(time, at("decides"), 0.5));
+    reveal(root.querySelector("#sort-note"), ramp(time, at("orders"), 0.5));
+
+    reveal(ordersTable, ramp(time, at("orders table") - 0.2, 0.6));
+    root.querySelector("#pk-badge").style.boxShadow = `0 0 ${30 * pulse(time, at("customer id"), 1.2)}px var(--blue)`;
+    root.querySelector("#sk-badge").style.boxShadow = `0 0 ${30 * pulse(time, at("order date"), 1.2)}px var(--violet)`;
+
+    const groupProgress = ramp(time, at("together") - 0.3, 0.9);
+    const sortProgress = ramp(time, at("sorted") - 0.1, 0.9);
+    rows.forEach((row, index) => {
+      const startY = index * rowHeight;
+      const groupedY = groupedPosition.indexOf(index) * rowHeight;
+      const sortedY = sortedPosition.indexOf(index) * rowHeight;
+      row.style.top = `${lerp(lerp(startY, groupedY, groupProgress), sortedY, sortProgress)}px`;
+      row.style.background = groupProgress > 0.05 ? groupColors[orders[index].customer].replace(/0\.\d+\)/, `${0.2 * groupProgress})`) : "rgba(255,255,255,0.03)";
+      const dateCell = row.children[1];
+      dateCell.style.color = sortProgress > 0.5 ? "var(--violet)" : "var(--text)";
+    });
+    groupLabels.forEach((label) => {
+      const customer = label.dataset.customer;
+      const firstRow = sortedPosition.findIndex((index) => orders[index].customer === customer);
+      const rowCount = orders.filter((order) => order.customer === customer).length;
+      label.textContent = `${customer}'s orders →`;
+      label.style.top = `${330 + 40 + 58 + 8 + firstRow * rowHeight + (rowCount * rowHeight) / 2 - 18}px`;
+      label.style.color = { "C-101": "var(--blue)", "C-102": "var(--violet)", "C-103": "var(--green)" }[customer];
+      reveal(label, ramp(time, at("together") + 0.5, 0.5), { rise: 0 });
+    });
+  };
+};
+
+/** Shared drawing of a row of partition "servers" used in a few scenes. */
+function buildServers(root, { count = 4, top = 590, height = 230, withMeters = false, label = (index) => `Partition ${index + 1}`, contents = () => [] } = {}) {
+  const servers = [];
+  for (let index = 0; index < count; index++) {
+    const server = document.createElement("div");
+    server.className = "server";
+    server.style.left = `${180 + index * 400}px`;
+    server.style.top = `${top}px`;
+    server.style.width = "330px";
+    server.style.height = `${height}px`;
+    server.innerHTML = `<div class="server-head">${label(index)}</div><div class="server-lights"><i></i><i></i></div>
+      ${withMeters ? `<div class="muted" style="position:absolute;left:22px;bottom:60px;font-size:22px;font-weight:600">load <span class="load-value mono">0%</span></div><div class="meter"><div class="meter-fill"></div></div>`
+                   : `<div class="slots">${contents(index).map((text) => `<div>${text}</div>`).join("")}</div>`}`;
+    root.appendChild(server);
+    servers.push(server);
+  }
+  return servers;
+}
+
+SCENE_BUILDERS.hashing = (root) => {
+  root.innerHTML = `
+    <div class="item-card" id="new-item" style="left:180px;top:190px;width:380px;padding:18px 22px">
+      <div class="muted" style="font-size:22px;font-weight:700;margin-left:12px">SAVE ITEM</div>
+      <div class="attribute" style="border-color:var(--blue);background:var(--blue-soft)"><span class="name" style="min-width:150px;color:var(--blue)">CustomerId</span><span class="value">"C-101"</span></div>
+      <div class="attribute"><span class="name" style="min-width:150px">Name</span><span class="value">"Ana"</span></div>
+    </div>
+    <div class="item-card" id="read-request" style="left:180px;top:190px;width:380px;padding:18px 22px;border-color:var(--green)">
+      <div style="font-size:22px;font-weight:700;margin-left:12px;color:var(--green)">READ ITEM</div>
+      <div class="attribute"><span class="name" style="min-width:150px;color:var(--blue)">CustomerId</span><span class="value">"C-101"</span></div>
+      <div class="attribute"><span class="muted" style="font-size:24px">where is it?</span></div>
+    </div>
+    <div class="card" id="hash-box" style="left:760px;top:200px;width:400px;height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-color:var(--violet)">
+      <div style="font-size:24px;font-weight:700;color:var(--violet)">⚙️ HASH FUNCTION</div>
+      <div class="mono" style="font-size:36px;font-weight:600;margin-top:8px">hash("C-101")</div>
+    </div>
+    <div class="abs" id="hash-output" style="left:1300px;top:206px">
+      <div class="mono" style="font-size:52px;font-weight:600;color:var(--gold)" id="hash-number">2,846,193</div>
+      <div style="font-size:30px;font-weight:700;margin-top:8px" id="hash-target">→ Partition 3</div>
+    </div>
+    <div class="abs muted" id="servers-note" style="left:180px;top:540px;font-size:26px;font-weight:600">Partitions live on many storage servers</div>
+    <div class="abs chip mono" id="moving-item" style="font-size:22px;padding:8px 14px;background:var(--blue);color:#fff;margin:-22px 0 0 -50px">C-101</div>
+    <span class="tag good" id="found-tag" style="left:1300px;top:540px">✓ found in one step</span>`;
+  const servers = buildServers(root, { contents: (index) => [["A-17", "Z-03", "M-88"], ["B-40", "K-12", "Q-09"], ["D-55", "", ""], ["T-61", "H-02", "W-77"]][index] });
+  const targetServer = servers[2];
+  const emptySlot = targetServer.querySelectorAll(".slots div")[1];
+  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
+  svg.setAttribute("class", "overlay");
+  root.insertBefore(svg, root.firstChild);
+  const itemToHash = createArrow(svg, "M570 270 L 750 270", { color: "var(--blue)" });
+  const hashToNumber = createArrow(svg, "M1170 270 L 1285 270", { color: "var(--violet)" });
+  const hashToPartition = createArrow(svg, "M960 360 C 960 470, 1145 470, 1145 580", { color: "var(--gold)", width: 6 });
+  const skipMarks = servers.filter((server) => server !== targetServer).map((server) => {
+    const mark = document.createElement("span");
+    mark.className = "tag bad";
+    mark.textContent = "✕ not searched";
+    mark.style.left = `${parseFloat(server.style.left) + 60}px`;
+    mark.style.top = `${parseFloat(server.style.top) + 92}px`;
+    root.appendChild(mark);
+    return mark;
+  });
+  const newItem = root.querySelector("#new-item");
+  const readRequest = root.querySelector("#read-request");
+  const hashBox = root.querySelector("#hash-box");
+  const movingItem = root.querySelector("#moving-item");
+
+  return (time, at) => {
+    servers.forEach((server, index) => reveal(server, ramp(time, at("partitions") - 0.2 + index * 0.15, 0.5)));
+    reveal(root.querySelector("#servers-note"), ramp(time, at("servers") - 0.2, 0.5));
+
+    const readProgress = ramp(time, at("read") - 0.2, 0.5);
+    reveal(newItem, ramp(time, at("save") - 0.2, 0.5) * (1 - readProgress));
+    reveal(readRequest, readProgress);
+
+    // Saving: item → hash → number → partition 3. Reading repeats the same trip.
+    const repeatTrip = ramp(time, at("same") - 0.1, 0.25);
+    itemToHash.set(ramp(time, at("runs"), 0.5) * (1 - repeatTrip) + ramp(time, at("math"), 0.4) * repeatTrip);
+    reveal(hashBox, ramp(time, at("hash") - 0.3, 0.5), { scaleFrom: 0.9 });
+    hashBox.style.boxShadow = `0 0 ${50 * Math.max(pulse(time, at("hash"), 1.2), pulse(time, at("math"), 1.2))}px rgba(162,123,255,0.7)`;
+    hashToNumber.set(ramp(time, at("number"), 0.4));
+    reveal(root.querySelector("#hash-number"), ramp(time, at("number") + 0.2, 0.4), { rise: 10 });
+    reveal(root.querySelector("#hash-target"), ramp(time, at("points"), 0.4), { rise: 10 });
+    hashToPartition.set(ramp(time, at("exactly") - 0.2, 0.6) * (1 - repeatTrip) + ramp(time, at("straight") - 0.2, 0.5) * repeatTrip);
+
+    const dropProgress = ramp(time, at("exactly") + 0.2, 0.8);
+    const dropPoint = hashToPartition.pointAt(dropProgress);
+    placeAt(movingItem, dropPoint);
+    movingItem.style.opacity = dropProgress > 0 && dropProgress < 1 ? 1 : 0;
+    const stored = dropProgress >= 1;
+    emptySlot.textContent = stored ? "C-101" : "";
+    emptySlot.style.background = stored ? "var(--blue)" : "var(--panel-raised)";
+    emptySlot.style.color = stored ? "#fff" : "var(--muted)";
+
+    const highlightStrength = Math.max(pulse(time, at("one partition") , 1.4), ramp(time, at("straight"), 0.4));
+    targetServer.style.borderColor = highlightStrength > 0.3 ? "var(--gold)" : "var(--line)";
+    targetServer.style.boxShadow = `0 0 ${60 * highlightStrength}px rgba(255,197,61,0.45)`;
+    pop(root.querySelector("#found-tag"), time, at("place"));
+    const skipProgress = ramp(time, at("searching") - 0.1, 0.5);
+    servers.forEach((server) => { if (server !== targetServer) server.style.opacity = Math.min(parseFloat(server.style.opacity), 1 - 0.55 * skipProgress); });
+    skipMarks.forEach((mark, index) => pop(mark, time, at("searching") + index * 0.12));
+  };
+};
+
+SCENE_BUILDERS.scaling = (root) => {
+  const gridArea = { left: 140, top: 170, width: 1120, height: 660 };
+  const stageCounts = [4, 8, 16, 64];
+  const maxTiles = stageCounts[stageCounts.length - 1];
+  root.innerHTML = `
+    <div id="tiles"></div>
+    <div class="card" style="left:1340px;top:170px;width:440px;height:300px;padding:30px 34px">
+      <div class="muted" style="font-size:26px;font-weight:700">ITEMS STORED</div>
+      <div class="mono" id="item-count" style="font-size:54px;font-weight:600;margin-top:16px;color:var(--gold)">1,000</div>
+      <div class="muted" style="font-size:26px;font-weight:700;margin-top:30px">PARTITIONS</div>
+      <div class="mono" id="partition-count" style="font-size:44px;font-weight:600;margin-top:6px">4</div>
+    </div>
+    <div class="card" id="speed-card" style="left:1340px;top:510px;width:440px;height:320px;padding:30px 34px">
+      <div class="muted" style="font-size:26px;font-weight:700">TYPICAL READ TIME</div>
+      <div class="mono" style="font-size:70px;font-weight:600;margin-top:12px;color:var(--green)">≈ 5 ms</div>
+      <div style="font-size:28px;font-weight:600;margin-top:16px">same at every size</div>
+      <svg width="370" height="60" style="margin-top:14px"><path d="M0 40 L 370 40" stroke="var(--green)" stroke-width="5" stroke-dasharray="2 12" stroke-linecap="round"/></svg>
+    </div>
+    <span class="tag info" id="slice-tag" style="left:440px;top:120px">each partition = its own slice of the data</span>`;
+  const tilesLayer = root.querySelector("#tiles");
+  const tiles = Array.from({ length: maxTiles }, (_, index) => {
+    const tile = document.createElement("div");
+    tile.className = "tile";
+    tilesLayer.appendChild(tile);
+    return tile;
+  });
+  /** Grid position of tile `index` when the area holds `count` tiles. */
+  function tileRect(count, index) {
+    const columns = Math.ceil(Math.sqrt((count * gridArea.width) / gridArea.height));
+    const rows = Math.ceil(count / columns);
+    const gap = count > 20 ? 10 : 18;
+    const width = (gridArea.width - gap * (columns - 1)) / columns;
+    const height = (gridArea.height - gap * (rows - 1)) / rows;
+    return { left: gridArea.left + (index % columns) * (width + gap), top: gridArea.top + Math.floor(index / columns) * (height + gap), width, height };
+  }
+  const itemCountAtStage = [1e3, 1e6, 5e7, 1e9];
+
+  return (time, at) => {
+    const stageCues = [0, at("splits"), at("spreads"), at("billion") - 0.4];
+    let stage = 0;
+    stageCues.forEach((cue, index) => { if (index > 0 && time >= cue) stage = index; });
+    const stageProgress = stage === 0 ? 1 : ramp(time, stageCues[stage], 0.9);
+    const count = stageCounts[stage];
+    const previousCount = stageCounts[Math.max(0, stage - 1)];
+    const childrenPerParent = count / previousCount;
+    const wave = pulse(time, at("divided") - 0.3, 1.6);
+
+    tiles.forEach((tile, index) => {
+      if (index >= count) { tile.style.display = "none"; return; }
+      tile.style.display = "flex";
+      const target = tileRect(count, index);
+      const origin = stage === 0 ? target : tileRect(previousCount, Math.floor(index / childrenPerParent));
+      const left = lerp(origin.left, target.left, stageProgress);
+      const top = lerp(origin.top, target.top, stageProgress);
+      const width = lerp(origin.width, target.width, stageProgress);
+      const height = lerp(origin.height, target.height, stageProgress);
+      Object.assign(tile.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
+      const hue = 222 + ((index * 7) % 40);
+      const flash = stage > 0 ? pulse(time, stageCues[stage], 0.9) : 0;
+      const waveHere = pulse(time, at("divided") - 0.3 + (index % 8) * 0.08, 1.0);
+      tile.style.background = `hsl(${hue} 70% ${46 + 14 * flash + 14 * waveHere}%)`;
+      tile.style.fontSize = `${Math.max(14, Math.min(44, width / 5))}px`;
+      tile.textContent = width > 90 ? `P${index + 1}` : "";
+      tile.style.opacity = ramp(time, 0.1 + index * 0.08, 0.4);
+    });
+    const fromCount = itemCountAtStage[Math.max(0, stage - 1)], toCount = itemCountAtStage[stage];
+    const itemCount = Math.exp(lerp(Math.log(stage === 0 ? toCount : fromCount), Math.log(toCount), stageProgress));
+    root.querySelector("#item-count").textContent = formatNumber(itemCount);
+    root.querySelector("#partition-count").textContent = count;
+    reveal(root.querySelector("#slice-tag"), ramp(time, at("slice") - 0.3, 0.5) * (1 - ramp(time, at("billion") - 0.4, 0.4)), { rise: 10 });
+    const speedCard = root.querySelector("#speed-card");
+    speedCard.style.borderColor = Math.max(pulse(time, at("fast"), 1.4), wave) > 0.3 ? "var(--green)" : "var(--line)";
+  };
+};
+
+SCENE_BUILDERS.replication = (root) => {
+  const zones = ["A", "B", "C"];
+  root.innerHTML = `
+    <div class="item-card" id="writer" style="left:160px;top:160px;width:480px;padding:16px 22px">
+      <div style="font-size:24px;font-weight:700;color:var(--gold)">✍️ WRITE</div>
+      <div class="mono" style="font-size:26px;margin-top:6px">C-101 → new address</div>
+    </div>
+    ${zones.map((zone, index) => `
+      <div class="server zone" style="left:${160 + index * 560}px;top:330px;width:480px;height:380px">
+        <div class="server-head" style="font-size:30px">Availability Zone ${zone}</div>
+        <div class="muted zone-note" style="font-size:24px;padding:0 22px">a separate data center</div>
+        <div class="zone-copy" style="position:absolute;left:30px;right:30px;top:140px;height:120px;border-radius:16px;background:var(--panel-raised);border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-size:28px;font-weight:800">Partition 3</div>
+          <div class="muted" style="font-size:22px;font-weight:600">copy ${index + 1} of 3</div>
+        </div>
+        <span class="tag warn leader-badge" style="left:150px;top:116px;font-size:22px;padding:4px 14px">👑 leader</span>
+        <div class="zone-status" style="position:absolute;left:0;right:0;bottom:30px;text-align:center;font-size:30px;font-weight:800"></div>
+        <div class="zone-down" style="position:absolute;inset:0;border-radius:20px;background:rgba(10,15,30,0.75);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:800;color:var(--red)">✕ offline</div>
+      </div>`).join("")}
+    <span class="tag good" id="saved-tag" style="left:700px;top:180px;font-size:30px">✓ saved once 2 of 3 copies have it</span>
+    <div id="packets"></div>`;
+  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
+  svg.setAttribute("class", "overlay");
+  root.insertBefore(svg, root.firstChild);
+  const toLeader = createArrow(svg, "M400 252 L 400 322", { color: "var(--gold)" });
+  const leaderToB = createArrow(svg, "M420 712 Q 680 860 940 716", { color: "var(--gold)" });
+  const leaderToC = createArrow(svg, "M380 712 Q 960 930 1500 716", { color: "var(--gold)" });
+  const toB = createArrow(svg, "M640 206 Q 940 206 940 322", { color: "var(--green)", dashed: true });
+  const zoneBoxes = [...root.querySelectorAll(".zone")];
+  const packetsLayer = root.querySelector("#packets");
+  const makePacket = (color) => { const dot = document.createElement("div"); dot.className = "dot"; dot.style.background = color; dot.style.width = dot.style.height = "26px"; dot.style.margin = "-13px 0 0 -13px"; packetsLayer.appendChild(dot); return dot; };
+  const writePacket = makePacket("var(--gold)");
+  const copyPacketB = makePacket("var(--gold)");
+  const copyPacketC = makePacket("var(--gold)");
+  const trafficDots = Array.from({ length: 8 }, () => makePacket("var(--green)"));
+
+  return (time, at) => {
+    zoneBoxes.forEach((zone, index) => {
+      reveal(zone, ramp(time, at("copied") - 0.2 + index * 0.25, 0.5));
+      zone.querySelector(".zone-note").style.color = pulse(time, at("data centers"), 1.4) > 0.3 ? "var(--cyan)" : "var(--muted)";
+      zone.querySelector(".leader-badge").style.display = index === 0 ? "block" : "none";
+    });
+    pop(zoneBoxes[0].querySelector(".leader-badge"), time, at("leader") - 0.1);
+    zoneBoxes[0].querySelector(".zone-copy").style.borderColor = ramp(time, at("leader"), 0.3) > 0.5 ? "var(--gold)" : "var(--line)";
+
+    // The write travels to the leader, then the leader sends copies to B and C.
+    const writeStart = at("write") - 0.1;
+    reveal(root.querySelector("#writer"), ramp(time, writeStart - 0.2, 0.4));
+    toLeader.set(ramp(time, writeStart, 0.4));
+    const toLeaderTravel = ramp(time, writeStart + 0.1, 0.5);
+    placeAt(writePacket, toLeader.pointAt(toLeaderTravel));
+    writePacket.style.opacity = toLeaderTravel > 0 && toLeaderTravel < 1 ? 1 : 0;
+    const copyStart = at("saved") - 0.1;
+    const travelB = ramp(time, copyStart, 0.9), travelC = ramp(time, copyStart + 0.2, 1.5);
+    leaderToB.set(ramp(time, copyStart, 0.5));
+    leaderToC.set(ramp(time, copyStart + 0.1, 0.7));
+    placeAt(copyPacketB, leaderToB.pointAt(travelB));
+    placeAt(copyPacketC, leaderToC.pointAt(travelC));
+    copyPacketB.style.opacity = travelB > 0 && travelB < 1 ? 1 : 0;
+    copyPacketC.style.opacity = travelC > 0 && travelC < 1 ? 1 : 0;
+
+    const downProgress = ramp(time, at("down") - 0.1, 0.4);
+    const rebuiltProgress = ramp(time, at("replacement") - 0.1, 0.6);
+    const statuses = [
+      toLeaderTravel >= 1 ? ["✓ has it", "var(--green)"] : ["", ""],
+      travelB >= 1 ? ["✓ has it", "var(--green)"] : ["", ""],
+      rebuiltProgress > 0.5 ? ["🔧 rebuilt ✓", "var(--green)"] : travelC >= 1 ? ["✓ has it", "var(--green)"] : ["", ""],
+    ];
+    zoneBoxes.forEach((zone, index) => {
+      const status = zone.querySelector(".zone-status");
+      status.textContent = statuses[index][0];
+      status.style.color = statuses[index][1];
+    });
+    pop(root.querySelector("#saved-tag"), time, at("two") );
+    root.querySelector("#saved-tag").style.opacity *= 1 - downProgress;
+
+    zoneBoxes[0].querySelector(".zone-down").style.display = "none";
+    zoneBoxes[1].querySelector(".zone-down").style.display = "none";
+    const downOverlay = zoneBoxes[2].querySelector(".zone-down");
+    downOverlay.style.opacity = downProgress * (1 - rebuiltProgress);
+    zoneBoxes[2].style.borderColor = downProgress > 0.5 && rebuiltProgress < 0.5 ? "var(--red)" : "var(--line)";
+
+    // While zone C is down, readers keep being served by A and B.
+    const serving = ramp(time, at("serving") - 0.3, 0.5);
+    toB.set(serving);
+    trafficDots.forEach((dot, index) => {
+      const travel = (time * 0.7 + index / trafficDots.length) % 1;
+      const arrow = index % 2 === 0 ? toLeader : toB;
+      placeAt(dot, arrow.pointAt(travel));
+      dot.style.opacity = serving * Math.sin(Math.PI * travel);
+      dot.style.width = dot.style.height = "16px";
+      dot.style.margin = "-8px 0 0 -8px";
+    });
+  };
+};
+
+SCENE_BUILDERS.consistency = (root) => {
+  const copies = [
+    { name: "Copy · Zone C", value: "12 Oak St", note: "old · catching up…", color: "var(--gold)", top: 180 },
+    { name: "Copy · Zone B", value: "9 Pier Rd", note: "latest", color: "var(--green)", top: 410 },
+    { name: "👑 Leader · Zone A", value: "9 Pier Rd", note: "latest", color: "var(--green)", top: 640 },
+  ];
+  root.innerHTML = `
+    ${copies.map((copy) => `
+      <div class="server copy" style="left:1200px;top:${copy.top}px;width:560px;height:190px;padding:22px 28px">
+        <div style="font-size:28px;font-weight:800">${copy.name}</div>
+        <div class="mono" style="font-size:34px;margin-top:14px">address: "${copy.value}"</div>
+        <div style="font-size:24px;font-weight:700;margin-top:6px;color:${copy.color}">${copy.note}</div>
+      </div>`).join("")}
+    <div class="card" id="eventual-card" style="left:140px;top:180px;width:700px;height:300px;padding:28px 34px">
+      <div class="card-title" style="font-size:32px">Eventually consistent read</div>
+      <div class="bullet eventual-point" style="margin-top:22px">📬 any copy can answer</div>
+      <div class="bullet eventual-point" style="margin-top:14px">⏳ might be a split second behind</div>
+      <div class="bullet eventual-point" style="margin-top:14px;color:var(--green)">💰 costs half as much</div>
+    </div>
+    <div class="card" id="strong-card" style="left:140px;top:560px;width:700px;height:270px;padding:28px 34px">
+      <div class="card-title" style="font-size:32px">Strongly consistent read</div>
+      <div class="bullet strong-point" style="margin-top:22px">👑 always asks the leader</div>
+      <div class="bullet strong-point" style="margin-top:14px;color:var(--green)">✓ guaranteed latest data</div>
+    </div>`;
+  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
+  svg.setAttribute("class", "overlay");
+  root.insertBefore(svg, root.firstChild);
+  const eventualArrow = createArrow(svg, "M850 300 C 1000 300, 1040 275, 1190 275", { color: "var(--gold)" });
+  const strongArrow = createArrow(svg, "M850 700 C 1000 700, 1040 735, 1190 735", { color: "var(--green)" });
+  const copyBoxes = [...root.querySelectorAll(".copy")];
+  const eventualPoints = [...root.querySelectorAll(".eventual-point")];
+  const strongPoints = [...root.querySelectorAll(".strong-point")];
+
+  return (time, at) => {
+    copyBoxes.forEach((box, index) => reveal(box, ramp(time, at("copies") - 0.2 + index * 0.15, 0.5)));
+    reveal(root.querySelector("#eventual-card"), ramp(time, at("eventually") - 0.3, 0.5));
+    eventualArrow.set(ramp(time, at("answered"), 0.5));
+    [at("any"), at("split"), at("half")].forEach((cue, index) => reveal(eventualPoints[index], ramp(time, cue - 0.2, 0.4), { rise: 12 }));
+    copyBoxes[0].style.borderColor = ramp(time, at("answered") + 0.3, 0.3) > 0.5 ? "var(--gold)" : "var(--line)";
+
+    reveal(root.querySelector("#strong-card"), ramp(time, at("strongly") - 0.3, 0.5));
+    strongArrow.set(ramp(time, at("leader") - 0.3, 0.5));
+    [at("leader"), at("guaranteed")].forEach((cue, index) => reveal(strongPoints[index], ramp(time, cue - 0.2, 0.4), { rise: 12 }));
+    copyBoxes[2].style.borderColor = ramp(time, at("leader"), 0.3) > 0.5 ? "var(--green)" : "var(--line)";
+    copyBoxes[2].style.boxShadow = `0 0 ${50 * pulse(time, at("guaranteed"), 1.4)}px rgba(61,220,151,0.5)`;
+  };
+};
+
+SCENE_BUILDERS.reading = (root) => {
+  const methods = [
+    { name: "GetItem", cue: "get item", detail: "one item, by its full key", verdict: "⚡ fastest", verdictClass: "good" },
+    { name: "Query", cue: "query", detail: "items sharing one partition key", verdict: "👍 fast", verdictClass: "good" },
+    { name: "Scan", cue: "scan", detail: "every item in the table", verdict: "🐢 slow & costly", verdictClass: "bad" },
+  ];
+  const tileColumns = 4, tileRows = 5;
+  root.innerHTML = `
+    ${methods.map((method, index) => `
+      <div class="card method" style="left:${140 + index * 560}px;top:160px;width:520px;height:410px;padding:24px 30px">
+        <div class="mono" style="font-size:36px;font-weight:600;color:var(--cyan)">${method.name}</div>
+        <div style="font-size:24px;font-weight:600;margin-top:6px" class="muted">${method.detail}</div>
+        <div class="tile-grid" style="position:absolute;left:30px;top:130px;width:460px;height:190px;display:grid;grid-template-columns:repeat(${tileColumns},1fr);gap:8px">
+          ${Array.from({ length: tileColumns * tileRows }, () => "<div style='border-radius:6px;background:var(--panel-raised)'></div>").join("")}
+        </div>
+        <span class="tag ${method.verdictClass} verdict" style="left:30px;top:340px">${method.verdict}</span>
+      </div>`).join("")}
+    <div class="abs muted" id="query-note" style="left:780px;top:118px;font-size:22px;font-weight:600">e.g. C-101's orders from March</div>
+    <div class="abs" id="index-section" style="left:140px;top:610px;width:1640px;height:260px">
+      <div class="card" style="left:0;top:0;width:620px;height:250px;padding:20px 26px">
+        <div style="font-size:24px;font-weight:700">🗂️ Orders <span class="chip badge-pk" style="font-size:18px;padding:4px 12px">key: CustomerId</span></div>
+        <div class="mono" style="font-size:24px;margin-top:16px;line-height:1.7">C-101 · 03-02 · <span style="color:var(--green)">SHIPPED</span><br>C-101 · 03-30 · <span style="color:var(--gold)">PENDING</span><br>C-102 · 03-14 · <span style="color:var(--gold)">PENDING</span></div>
+      </div>
+      <div class="card" id="index-card" style="left:1020px;top:0;width:620px;height:250px;padding:20px 26px;border-color:var(--cyan)">
+        <div style="font-size:24px;font-weight:700">🔎 Global secondary index <span class="chip" style="font-size:18px;padding:4px 12px;border:2px solid var(--cyan);color:var(--cyan)">key: Status</span></div>
+        <div class="mono" style="font-size:24px;margin-top:16px;line-height:1.7"><span style="color:var(--gold)">PENDING</span> · C-101 · 03-30<br><span style="color:var(--gold)">PENDING</span> · C-102 · 03-14<br><span style="color:var(--green)">SHIPPED</span> · C-101 · 03-02</div>
+      </div>
+      <div class="abs" id="sync-label" style="left:640px;top:60px;width:360px;text-align:center;font-size:24px;font-weight:700;color:var(--cyan)">🔄 kept in sync<br>for you</div>
+    </div>`;
+  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
+  svg.setAttribute("class", "overlay");
+  root.appendChild(svg);
+  const indexArrow = createArrow(svg, "M780 790 L 1150 790", { color: "var(--cyan)", width: 6 });
+  const methodCards = [...root.querySelectorAll(".method")];
+  const tileSets = methodCards.map((card) => [...card.querySelectorAll(".tile-grid div")]);
+  const indexSection = root.querySelector("#index-section");
+
+  return (time, at) => {
+    const indexProgress = ramp(time, at("global") - 0.3, 0.6);
+    methodCards.forEach((card, index) => {
+      reveal(card, ramp(time, at(methods[index].cue) - 0.3, 0.5));
+      card.style.opacity = parseFloat(card.style.opacity) * (1 - 0.55 * indexProgress);
+    });
+    const verdictCues = [at("fastest"), at("march") + 0.3, at("costly")];
+    methodCards.forEach((card, index) => pop(card.querySelector(".verdict"), time, verdictCues[index] - 0.2));
+
+    // GetItem lights one tile; Query lights part of one column; Scan sweeps everything.
+    const getProgress = ramp(time, at("fetches"), 0.4);
+    tileSets[0].forEach((tile, index) => { tile.style.background = index === 9 && getProgress > 0.5 ? "var(--gold)" : "var(--panel-raised)"; });
+    const queryProgress = ramp(time, at("grabs"), 0.4);
+    const rangeProgress = ramp(time, at("march") - 0.2, 0.4);
+    tileSets[1].forEach((tile, index) => {
+      const column = index % tileColumns, row = Math.floor(index / tileColumns);
+      const inPartition = column === 1;
+      const inRange = inPartition && row >= 1 && row <= 3;
+      tile.style.background = !inPartition || queryProgress < 0.5 ? "var(--panel-raised)" : rangeProgress > 0.5 ? (inRange ? "var(--gold)" : "rgba(91,132,255,0.35)") : "rgba(91,132,255,0.6)";
+    });
+    reveal(root.querySelector("#query-note"), ramp(time, at("march") - 0.3, 0.4) * (1 - indexProgress), { rise: 8 });
+    const sweep = ramp(time, at("reads"), 2.4, (x) => x);
+    tileSets[2].forEach((tile, index) => { tile.style.background = sweep * tileSets[2].length > index ? "var(--red)" : "var(--panel-raised)"; tile.style.opacity = sweep * tileSets[2].length > index ? 0.75 : 1; });
+
+    reveal(indexSection, indexProgress);
+    indexArrow.set(ramp(time, at("copy") - 0.2, 0.6));
+    const indexCard = root.querySelector("#index-card");
+    reveal(indexCard, ramp(time, at("organized") - 0.3, 0.5));
+    reveal(root.querySelector("#sync-label"), ramp(time, at("sync") - 0.3, 0.4), { rise: 8 });
+    indexCard.style.boxShadow = `0 0 ${50 * pulse(time, at("sync"), 1.4)}px rgba(63,213,240,0.5)`;
+  };
+};
+
+SCENE_BUILDERS.hot = (root) => {
+  root.innerHTML = `
+    <div class="card" id="key-card" style="left:560px;top:160px;width:800px;height:120px;display:flex;align-items:center;justify-content:center;gap:20px">
+      <span style="font-size:30px;font-weight:700">Partition key =</span>
+      <span class="mono" id="key-value" style="font-size:34px;font-weight:600;color:var(--gold)">?</span>
+    </div>
+    <div id="request-dots"></div>
+    <span class="tag bad" id="hot-tag" style="left:560px;top:520px;font-size:30px">🔥 hot partition</span>
+    <span class="tag bad" id="slow-tag" style="left:860px;top:520px;font-size:30px">⚠ requests get slowed down</span>
+    <span class="tag good" id="even-tag" style="left:1380px;top:200px;font-size:30px">✓ load spreads out evenly</span>`;
+  const servers = buildServers(root, { top: 590, height: 230, withMeters: true });
+  const idleLabels = servers.map((server, index) => {
+    const label = document.createElement("div");
+    label.className = "abs muted";
+    label.style.cssText = `left:${parseFloat(server.style.left)}px;top:${parseFloat(server.style.top) + 80}px;width:330px;text-align:center;font-size:30px;font-weight:700`;
+    label.textContent = index === 1 ? "" : "💤 idle";
+    root.appendChild(label);
+    return label;
+  });
+  const dotsLayer = root.querySelector("#request-dots");
+  const dotCount = 36;
+  const makeDots = (color) => Array.from({ length: dotCount }, () => { const dot = document.createElement("div"); dot.className = "dot"; dot.style.background = color; dotsLayer.appendChild(dot); return dot; });
+  const crowdedDots = makeDots("var(--red)");
+  const spreadDots = makeDots("var(--green)");
+  const partitionCenterX = (index) => 180 + index * 400 + 165;
+
+  function moveDots(dots, time, strength, targetFor) {
+    dots.forEach((dot, index) => {
+      const travel = (time * 0.65 + index / dotCount) % 1;
+      const startX = 760 + ((index * 97) % 400);
+      const target = targetFor(index);
+      dot.style.left = `${lerp(startX, partitionCenterX(target), easeInOut(travel))}px`;
+      dot.style.top = `${lerp(290, 600, easeInOut(travel))}px`;
+      dot.style.opacity = strength * Math.sin(Math.PI * travel);
+    });
+  }
+
+  return (time, at) => {
+    reveal(root.querySelector("#key-card"), ramp(time, at("partition key") - 0.3, 0.5));
+    servers.forEach((server, index) => reveal(server, ramp(time, at("partition key") + index * 0.12, 0.5)));
+    const crowdedPhase = ramp(time, at("todays") - 0.2, 0.5);
+    const spreadPhase = ramp(time, at("user") - 0.3, 0.7);
+    const keyValue = root.querySelector("#key-value");
+    keyValue.textContent = spreadPhase > 0.5 ? "user ID  (u-1842, u-0937, …)" : crowdedPhase > 0.5 ? "today's date  (2026-10-04)" : "?";
+    keyValue.style.color = spreadPhase > 0.5 ? "var(--green)" : crowdedPhase > 0.5 ? "var(--red)" : "var(--gold)";
+
+    moveDots(crowdedDots, time, crowdedPhase * (1 - spreadPhase) * ramp(time, at("traffic") - 0.3, 0.5), () => 1);
+    moveDots(spreadDots, time, spreadPhase, (index) => (index * 7) % 4);
+
+    servers.forEach((server, index) => {
+      const crowdedLoad = index === 1 ? 100 : 4;
+      const spreadLoad = [27, 24, 26, 23][index];
+      const load = lerp(lerp(2, crowdedLoad, ramp(time, at("traffic"), 1.0)), spreadLoad, ramp(time, at("spreads"), 1.0));
+      const fill = server.querySelector(".meter-fill");
+      fill.style.width = `${load}%`;
+      fill.style.background = load > 70 ? "var(--red)" : "var(--green)";
+      server.querySelector(".load-value").textContent = `${Math.round(load)}%`;
+      const isHot = index === 1 && load > 70;
+      server.style.borderColor = isHot ? "var(--red)" : "var(--line)";
+      server.style.boxShadow = isHot ? `0 0 ${50 + 20 * Math.sin(time * 6)}px rgba(255,107,129,0.45)` : "0 24px 60px rgba(0,0,0,0.35)";
+      reveal(idleLabels[index], ramp(time, at("idle") - 0.2, 0.4) * (1 - spreadPhase), { rise: 8 });
+    });
+    reveal(root.querySelector("#hot-tag"), ramp(time, at("hot") - 0.2, 0.4) * (1 - spreadPhase), { rise: 10 });
+    reveal(root.querySelector("#slow-tag"), ramp(time, at("slows") - 0.2, 0.4) * (1 - spreadPhase), { rise: 10 });
+    reveal(root.querySelector("#even-tag"), ramp(time, at("evenly") - 0.3, 0.4), { rise: 10 });
+  };
+};
+
+SCENE_BUILDERS.pricing = (root) => {
+  const spikyHeights = [12, 18, 10, 64, 90, 22, 14, 8, 40, 100, 70, 16, 10, 24, 82, 30, 12, 9, 55, 20];
+  const steadyHeights = [52, 56, 54, 58, 55, 57, 53, 56, 58, 55, 54, 57, 56, 53, 55, 58, 54, 56, 55, 57];
+  const chart = (heights, color) => `<div class="bars" style="position:absolute;left:40px;right:40px;top:200px;height:240px;display:flex;align-items:flex-end;gap:8px">${heights.map((height) => `<div data-height="${height}" style="flex:1;border-radius:6px 6px 0 0;background:${color}"></div>`).join("")}</div>`;
+  root.innerHTML = `
+    <div class="card" id="ondemand-card" style="left:140px;top:160px;width:780px;height:620px;padding:30px 40px">
+      <div class="card-title">On-demand</div>
+      <div style="font-size:28px;font-weight:600;margin-top:6px" class="muted">pay for each request</div>
+      ${chart(spikyHeights, "var(--violet)")}
+      <div class="abs muted" style="left:40px;top:452px;font-size:22px">traffic over a day</div>
+      <span class="tag info" id="ondemand-tag" style="left:40px;top:520px">best when traffic is unpredictable</span>
+    </div>
+    <div class="card" id="provisioned-card" style="left:1000px;top:160px;width:780px;height:620px;padding:30px 40px">
+      <div class="card-title">Provisioned</div>
+      <div style="font-size:28px;font-weight:600;margin-top:6px" class="muted">reserve reads &amp; writes per second</div>
+      ${chart(steadyHeights, "var(--blue)")}
+      <div class="abs" id="capacity-line" style="left:40px;right:40px;top:280px;border-top:4px dashed var(--gold)"></div>
+      <div class="abs" id="capacity-label" style="right:40px;top:240px;font-size:22px;font-weight:700;color:var(--gold)">reserved capacity</div>
+      <div class="abs muted" style="left:40px;top:452px;font-size:22px">traffic over a day</div>
+      <span class="tag good" id="provisioned-tag" style="left:40px;top:520px">cheaper when traffic is steady</span>
+    </div>
+    <div class="abs" id="storage-chip" style="left:0;width:1920px;top:806px;text-align:center"><span class="chip warn" style="font-size:28px">💾 plus storage, billed by the gigabyte each month</span></div>`;
+  const onDemandBars = [...root.querySelectorAll("#ondemand-card .bars div")];
+  const provisionedBars = [...root.querySelectorAll("#provisioned-card .bars div")];
+  const growBars = (bars, time, start) => bars.forEach((bar, index) => { bar.style.height = `${bar.dataset.height * ramp(time, start + index * 0.04, 0.5)}%`; });
+
+  return (time, at) => {
+    reveal(root.querySelector("#ondemand-card"), ramp(time, at("ondemand") - 0.3, 0.5));
+    growBars(onDemandBars, time, at("charges"));
+    pop(root.querySelector("#ondemand-tag"), time, at("unpredictable") - 0.2);
+    reveal(root.querySelector("#provisioned-card"), ramp(time, at("provisioned") - 0.3, 0.5));
+    growBars(provisionedBars, time, at("reserve"));
+    reveal(root.querySelector("#capacity-line"), ramp(time, at("reserve"), 0.5), { rise: 0 });
+    reveal(root.querySelector("#capacity-label"), ramp(time, at("reserve") + 0.2, 0.5), { rise: 6 });
+    pop(root.querySelector("#provisioned-tag"), time, at("steady") - 0.2);
+    reveal(root.querySelector("#storage-chip"), ramp(time, at("storage") - 0.2, 0.5));
+  };
+};
+
+SCENE_BUILDERS.fit = (root) => {
+  const useCases = [["🛒", "Shopping carts", "shopping"], ["👤", "User profiles", "profiles"], ["🏆", "Game leaderboards", "leaderboards"], ["🔐", "Login sessions", "sessions"]];
+  root.innerHTML = `
+    <div class="card" id="good-card" style="left:140px;top:160px;width:860px;height:680px;padding:30px 40px;border-color:rgba(61,220,151,0.5)">
+      <div class="card-title" style="color:var(--green)">✓ Great fit</div>
+      <div class="bullet fit-point" style="margin-top:20px;font-size:28px">🧭 you know your lookups ahead of time</div>
+      <div class="bullet fit-point" style="margin-top:10px;font-size:28px">🚀 you need speed at any size</div>
+      ${useCases.map(([emoji, label], index) => `<div class="use-tile" style="left:${40 + (index % 2) * 400}px;top:${270 + Math.floor(index / 2) * 180}px;width:370px"><span class="emoji">${emoji}</span>${label}</div>`).join("")}
+    </div>
+    <div class="card" id="weak-card" style="left:1060px;top:160px;width:720px;height:680px;padding:30px 40px;border-color:rgba(255,197,61,0.5)">
+      <div class="card-title" style="color:var(--gold)">⚠ Weaker fit</div>
+      <div class="bullet weak-point" style="margin-top:20px;font-size:28px">🔗 complex joins across tables</div>
+      <div class="bullet weak-point" style="margin-top:10px;font-size:28px">❓ new questions you didn't plan for</div>
+      <div class="muted" id="better-label" style="font-size:24px;font-weight:700;margin-top:56px">BETTER TOOLS FOR THOSE</div>
+      <div class="use-tile alternative" style="position:relative;left:0;top:0;margin-top:16px;width:640px;height:120px;flex-direction:row;gap:20px"><span class="emoji">🐘</span>Relational database <span class="muted" style="font-weight:600">e.g. PostgreSQL</span></div>
+      <div class="use-tile alternative" style="position:relative;left:0;top:0;margin-top:16px;width:640px;height:120px;flex-direction:row;gap:20px"><span class="emoji">🏬</span>Data warehouse <span class="muted" style="font-weight:600">e.g. Redshift</span></div>
+    </div>`;
+  const fitPoints = [...root.querySelectorAll(".fit-point")];
+  const useTiles = [...root.querySelectorAll("#good-card .use-tile")];
+  const weakPoints = [...root.querySelectorAll(".weak-point")];
+  const alternatives = [...root.querySelectorAll(".alternative")];
+
+  return (time, at) => {
+    reveal(root.querySelector("#good-card"), ramp(time, at("shines") - 0.3, 0.5));
+    reveal(fitPoints[0], ramp(time, at("know") - 0.2, 0.4), { rise: 10 });
+    reveal(fitPoints[1], ramp(time, at("speed") - 0.2, 0.4), { rise: 10 });
+    useTiles.forEach((tile, index) => pop(tile, time, at(useCases[index][2]) - 0.25));
+    reveal(root.querySelector("#weak-card"), ramp(time, at("weaker") - 0.3, 0.5));
+    reveal(weakPoints[0], ramp(time, at("joins") - 0.3, 0.4), { rise: 10 });
+    reveal(weakPoints[1], ramp(time, at("questions") - 0.3, 0.4), { rise: 10 });
+    reveal(root.querySelector("#better-label"), ramp(time, at("relational") - 0.4, 0.4), { rise: 6 });
+    pop(alternatives[0], time, at("relational") - 0.2);
+    pop(alternatives[1], time, at("warehouse") - 0.2);
+  };
+};
+
+SCENE_BUILDERS.recap = (root) => {
+  const points = [
+    ["🗂️", "Tables hold items, and every item has a key", "tables"],
+    ["⚙️", "The partition key is hashed to pick a partition", "hashed"],
+    ["🧩", "Partitions split as your data grows", "split"],
+    ["🛡️", "Each partition is copied three times", "copied"],
+    ["🎯", "Design your keys around how you read", "design"],
+  ];
+  root.innerHTML = `
+    <div class="abs" id="recap-list" style="left:300px;top:180px;width:1320px">
+      ${points.map(([icon, text]) => `<div class="bullet recap-point" style="font-size:42px;height:118px;padding:0 36px;margin-bottom:16px;border-radius:22px;background:var(--panel);border:2px solid var(--line)"><span style="font-size:48px">${icon}</span>${text}</div>`).join("")}
+    </div>
+    <div class="abs" id="end-card" style="left:0;top:250px;width:1920px;text-align:center">
+      <div>${databaseIcon(200)}</div>
+      <div class="title-big" style="font-size:130px">DynamoDB</div>
+      <div style="font-size:44px;font-weight:600;margin-top:14px" class="muted">fast at any size, when your keys fit how you read</div>
+    </div>`;
+  const recapPoints = [...root.querySelectorAll(".recap-point")];
+  return (time, at, scene) => {
+    const lastWordEnd = scene.words[scene.words.length - 1].end;
+    const endProgress = ramp(time, lastWordEnd + 0.2, 0.8);
+    recapPoints.forEach((point, index) => {
+      reveal(point, ramp(time, at(points[index][2]) - 0.3, 0.5), { rise: 20 });
+      point.style.borderColor = time > at(points[index][2]) && (index === points.length - 1 || time < at(points[index + 1][2])) ? "var(--blue)" : "var(--line)";
+    });
+    root.querySelector("#recap-list").style.opacity = 1 - endProgress;
+    reveal(root.querySelector("#end-card"), endProgress, { scaleFrom: 0.9 });
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Captions: the narration, a line at a time, with the current word highlighted.
+// ---------------------------------------------------------------------------
+function buildCaptionLines(words) {
+  const lines = [];
+  let currentLine = [];
+  let currentLength = 0;
+  const finishLine = () => { if (currentLine.length) lines.push(currentLine); currentLine = []; currentLength = 0; };
+  words.forEach((word) => {
+    if (currentLine.length && currentLength + word.display.length + 1 > 52) finishLine();
+    currentLine.push(word);
+    currentLength += word.display.length + 1;
+    if (/[.?!:]$/.test(word.display) || (/[,;]$/.test(word.display) && currentLength > 30)) finishLine();
+  });
+  finishLine();
+  return lines.map((lineWords) => ({ words: lineWords, start: lineWords[0].start, end: lineWords[lineWords.length - 1].end }));
+}
+
+// ---------------------------------------------------------------------------
+// Assembly and the frame clock
+// ---------------------------------------------------------------------------
+const timeline = window.TIMELINE;
+const scenesContainer = document.getElementById("scenes");
+const captionsElement = document.getElementById("captions");
+const progressElement = document.getElementById("progress");
+document.getElementById("brand").innerHTML = `${databaseIcon(34)}<span>DynamoDB, explained</span>`;
+window.RENDER_ERRORS = [];
+
+const sceneRuntimes = timeline.scenes.map((scene, sceneIndex) => {
+  const root = document.createElement("div");
+  root.className = "scene";
+  root.style.display = "block"; // visible while building so SVG paths can be measured
+  scenesContainer.appendChild(root);
+  const update = SCENE_BUILDERS[scene.id](root, scene);
+  root.style.display = "none";
+  const segment = document.createElement("div");
+  segment.className = "progress-segment";
+  segment.style.flexGrow = scene.duration;
+  segment.innerHTML = `<div class="progress-fill"></div>`;
+  progressElement.appendChild(segment);
+  return { scene, sceneIndex, root, update, at: createCueFinder(scene), captionLines: buildCaptionLines(scene.words), progressFill: segment.firstChild };
+});
+
+let activeSceneIndex = -1;
+let shownCaptionKey = "";
+
+function renderFrame(globalTime) {
+  const runtime = sceneRuntimes.find(({ scene }) => globalTime < scene.start + scene.duration) || sceneRuntimes[sceneRuntimes.length - 1];
+  const { scene, root } = runtime;
+  const localTime = globalTime - scene.start;
+  if (runtime.sceneIndex !== activeSceneIndex) {
+    sceneRuntimes.forEach((other) => { other.root.style.display = other === runtime ? "block" : "none"; });
+    activeSceneIndex = runtime.sceneIndex;
+    document.getElementById("scene-number").textContent = String(runtime.sceneIndex + 1).padStart(2, "0");
+    document.getElementById("scene-title").textContent = scene.title;
+  }
+  // Cross-fade at scene edges (the first scene fades in from black, the last one holds).
+  const isLastScene = runtime.sceneIndex === sceneRuntimes.length - 1;
+  const fadeIn = ramp(localTime, 0, 0.4);
+  const fadeOut = isLastScene ? 1 : 1 - ramp(localTime, scene.duration - 0.35, 0.35);
+  root.style.opacity = Math.min(fadeIn, fadeOut);
+  try {
+    runtime.update(localTime, runtime.at, scene);
+  } catch (error) {
+    window.RENDER_ERRORS.push(`${scene.id} @ ${localTime.toFixed(2)}s: ${error.message}`);
+  }
+
+  sceneRuntimes.forEach((other) => {
+    const sceneProgress = clamp01((globalTime - other.scene.start) / other.scene.duration);
+    other.progressFill.style.transform = `scaleX(${sceneProgress})`;
+  });
+  const labelOpacity = runtime.sceneIndex === 0 ? 0 : 1;
+  document.getElementById("scene-label").style.opacity = labelOpacity * Math.min(fadeIn, fadeOut);
+
+  // Captions
+  const lines = runtime.captionLines;
+  let lineIndex = -1;
+  lines.forEach((line, index) => { if (localTime >= line.start - 0.12) lineIndex = index; });
+  const line = lines[lineIndex];
+  const nextLine = lines[lineIndex + 1];
+  const lineVisible = line && localTime <= Math.min(line.end + 0.7, nextLine ? nextLine.start - 0.12 : Infinity);
+  const captionKey = lineVisible ? `${scene.id}:${lineIndex}` : "";
+  if (captionKey !== shownCaptionKey) {
+    captionsElement.innerHTML = lineVisible ? `<span class="caption-box">${line.words.map((word) => `<span class="word">${word.display}</span>`).join(" ")}</span>` : "";
+    shownCaptionKey = captionKey;
+  }
+  if (lineVisible) {
+    [...captionsElement.querySelectorAll(".word")].forEach((element, index) => {
+      const word = line.words[index];
+      element.className = `word${localTime >= word.start ? " spoken" : ""}${localTime >= word.start && localTime < word.end + 0.05 ? " current" : ""}`;
+    });
+  }
+}
+
+window.renderFrame = renderFrame;
+window.VIDEO_DURATION = timeline.totalDuration;
+
+// Check every cue once up front, so a typo in a cue word is caught before rendering.
+sceneRuntimes.forEach((runtime) => { for (let time = 0; time < runtime.scene.duration; time += 0.5) renderFrame(runtime.scene.start + time); });
+window.CUE_ERRORS = [...new Set(window.RENDER_ERRORS)];
+window.RENDER_ERRORS = [];
+
+// Preview mode: open video.html?preview in a browser to watch it with the voiceover.
+if (new URLSearchParams(location.search).has("preview")) {
+  const fitStage = () => { const scale = Math.min(innerWidth / 1920, innerHeight / 1080); document.getElementById("stage").style.transform = `scale(${scale})`; };
+  addEventListener("resize", fitStage);
+  fitStage();
+  const voiceover = new Audio("build/voiceover.wav");
+  const startTime = parseFloat(new URLSearchParams(location.search).get("t") || "0");
+  const tick = () => { renderFrame(voiceover.currentTime); requestAnimationFrame(tick); };
+  document.body.addEventListener("click", () => { voiceover.currentTime = startTime; voiceover.play(); tick(); }, { once: true });
+  renderFrame(startTime);
+} else {
+  renderFrame(0);
+}
+</script>
+</body>
+</html>
