@@ -1,6 +1,6 @@
 # DynamoDB, explained (video)
 
-A narrated, animated explainer video (about 5 minutes, 1920×1080) that teaches what Amazon DynamoDB is and how it works. It covers tables and items, primary keys, partitions and hashing, scaling, the three copies of your data, read consistency, ways to read, hot partitions, pricing, and when to use it.
+A narrated, animated explainer video (about 4½ minutes, 1920×1080) that teaches what Amazon DynamoDB is and how it works. It covers tables and items, primary keys, partitions and hashing, scaling, the three copies of your data, read consistency, ways to read, hot partitions, pricing, and when to use it.
 
 The video is code, not a video-editor project. That makes it easy to change one sentence or one animation and render again.
 
@@ -35,7 +35,7 @@ Useful extras:
 
 `make_voiceover.py --provider <name> [--voice <voice>] [--speed 1.15]`
 
-Speaking speed comes from `speaking_speed` in `narration.json` (currently 1.15, so 15% faster than normal). `--speed` overrides it for one run. The animations follow the words, so any speed stays in sync.
+Speaking speed comes from `speaking_speed` in `narration.json`. It is currently 1.2, which comes out about 15% faster than normal, because Kokoro's speed number is a bit stronger on paper than in practice. `--speed` overrides it for one run. The animations follow the words, so any speed stays in sync.
 
 | Provider | Cost / setup | Quality | Notes |
 | --- | --- | --- | --- |
