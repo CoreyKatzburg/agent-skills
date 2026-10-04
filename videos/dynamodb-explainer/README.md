@@ -33,7 +33,9 @@ Useful extras:
 
 ## Choosing a voice
 
-`make_voiceover.py --provider <name> [--voice <voice>]`
+`make_voiceover.py --provider <name> [--voice <voice>] [--speed 1.15]`
+
+Speaking speed comes from `speaking_speed` in `narration.json` (currently 1.15, so 15% faster than normal). `--speed` overrides it for one run. The animations follow the words, so any speed stays in sync.
 
 | Provider | Cost / setup | Quality | Notes |
 | --- | --- | --- | --- |

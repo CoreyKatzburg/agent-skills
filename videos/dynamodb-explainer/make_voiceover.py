@@ -142,11 +142,12 @@ def match_timings_to_script(timed_words, script_text):
 
 
 class KokoroVoice:
-    def __init__(self, voice_name):
+    def __init__(self, voice_name, speaking_speed):
         from kokoro import KPipeline
 
         self.pipeline = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
         self.voice_name = voice_name
+        self.speaking_speed = speaking_speed
 
     def speak(self, text):
         import numpy
@@ -155,7 +156,7 @@ class KokoroVoice:
         timed_words = []
         clip_offset_seconds = 0.0
         # Kokoro reads long text in chunks; each chunk's word times start at zero.
-        for chunk in self.pipeline(text, voice=self.voice_name, speed=1.0):
+        for chunk in self.pipeline(text, voice=self.voice_name, speed=self.speaking_speed):
             chunk_audio = chunk.audio.numpy()
             for token in chunk.tokens:
                 if token.start_ts is None or not normalize_word(token.text):
@@ -195,15 +196,18 @@ class OpenRouterFishVoice:
     MODEL = "fish-audio/s2.1-pro-free:free"
     ENDPOINT = "https://openrouter.ai/api/v1/audio/speech"
 
-    def __init__(self, voice_name):
+    def __init__(self, voice_name, speaking_speed):
         self.api_key = os.environ.get("OPENROUTER_API_KEY")
         if not self.api_key:
             raise SystemExit("OPENROUTER_API_KEY is not set. Add it to the environment and try again.")
         self.voice_name = voice_name
+        self.speaking_speed = speaking_speed
         self.listener = WordTimingListener()
 
     def speak(self, text):
         request_body = {"model": self.MODEL, "input": text, "response_format": "wav"}
+        if self.speaking_speed != 1.0:
+            request_body["speed"] = self.speaking_speed
         if self.voice_name:
             request_body["voice"] = self.voice_name
         request = urllib.request.Request(
@@ -223,12 +227,14 @@ class OpenRouterFishVoice:
 class EdgeVoice:
     TICKS_PER_SECOND = 10_000_000  # edge-tts reports times in 100-nanosecond ticks
 
-    def __init__(self, voice_name):
+    def __init__(self, voice_name, speaking_speed):
         import edge_tts.communicate as edge_tts_communicate
 
         # edge-tts pins its own certificate list; use the system bundle instead.
         edge_tts_communicate._SSL_CTX = SSL_CONTEXT
         self.voice_name = voice_name
+        # edge-tts takes speed as a percentage change, e.g. 1.15 -> "+15%".
+        self.rate = f"{round((speaking_speed - 1) * 100):+d}%"
 
     def speak(self, text):
         return asyncio.run(self._speak(text))
@@ -237,7 +243,7 @@ class EdgeVoice:
         import edge_tts
 
         speaker = edge_tts.Communicate(
-            text, self.voice_name, boundary="WordBoundary", proxy=os.environ.get("HTTPS_PROXY")
+            text, self.voice_name, rate=self.rate, boundary="WordBoundary", proxy=os.environ.get("HTTPS_PROXY")
         )
         audio_bytes = io.BytesIO()
         timed_words = []
@@ -263,12 +269,14 @@ def main():
     argument_parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     argument_parser.add_argument("--provider", choices=VOICE_PROVIDERS, default="kokoro")
     argument_parser.add_argument("--voice", help="Voice name for the provider (see README).")
+    argument_parser.add_argument("--speed", type=float, help="1.0 is normal; 1.15 is 15%% faster. Defaults to narration.json.")
     arguments = argument_parser.parse_args()
 
     narration = json.loads((PROJECT_FOLDER / "narration.json").read_text())
     AUDIO_FOLDER.mkdir(parents=True, exist_ok=True)
     voice_name = arguments.voice or DEFAULT_VOICES[arguments.provider]
-    voice = VOICE_PROVIDERS[arguments.provider](voice_name)
+    speaking_speed = arguments.speed or narration.get("speaking_speed", 1.0)
+    voice = VOICE_PROVIDERS[arguments.provider](voice_name, speaking_speed)
 
     voiceover_samples = bytearray()
     timeline_scenes = []
@@ -304,7 +312,7 @@ def main():
 
     write_wav(BUILD_FOLDER / "voiceover.wav", bytes(voiceover_samples))
     timeline = {
-        "voice": f"{arguments.provider}:{voice_name or 'default'}",
+        "voice": f"{arguments.provider}:{voice_name or 'default'} at {speaking_speed}x",
         "totalDuration": round(scene_start_seconds, 3),
         "scenes": timeline_scenes,
     }

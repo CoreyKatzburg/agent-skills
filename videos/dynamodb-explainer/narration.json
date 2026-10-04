@@ -1,4 +1,5 @@
 {
+  "speaking_speed": 1.15,
   "pause_after_scene_seconds": 0.7,
   "scenes": [
     {
