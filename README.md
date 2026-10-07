@@ -2,7 +2,7 @@
 
 Personal Cursor plugin with user-level skills that previously lived only on this machine (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills`).
 
-This repo is one plugin with two manifests that share the same `skills/` folder: `.cursor-plugin/plugin.json` for Cursor and `.devin-plugin/plugin.json` for Devin. Keep their `name`, `version`, and `description` in sync.
+This repo is one plugin with three manifests that share the same `skills/` folder: `.cursor-plugin/plugin.json` for Cursor, `.devin-plugin/plugin.json` for Devin, and `.claude-plugin/plugin.json` for Claude Code. `.claude-plugin/marketplace.json` also makes the repo a Claude Code marketplace. Keep the `name`, `version`, and `description` in all of them in sync.
 
 ## Skills included
 
@@ -56,6 +56,17 @@ devin plugins install --local ~/Repos/agent-skills
 ```
 
 Run `devin plugins info agent-skills` to confirm the skills loaded, and `devin plugins update agent-skills` after pushing changes. For a private repo, Devin needs GitHub access to it.
+
+## Add this as a Claude Code marketplace
+
+Claude Code looks for `.claude-plugin/marketplace.json` at the repo root.
+
+```bash
+/plugin marketplace add CoreyKatzburg/agent-skills
+/plugin install agent-skills@corey-agent-skills
+```
+
+Skills show up as `/agent-skills:<skill>`. After pushing changes, run `/plugin marketplace update corey-agent-skills`. For a private repo, Claude Code needs GitHub access to it.
 
 ## Updating skills later
 
