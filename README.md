@@ -2,7 +2,7 @@
 
 Personal Cursor plugin with user-level skills that previously lived only on this machine (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills`).
 
-This repo is one plugin with three manifests that share the same `skills/` folder: `.cursor-plugin/plugin.json` for Cursor, `.devin-plugin/plugin.json` for Devin, and `.claude-plugin/plugin.json` for Claude Code. `.claude-plugin/marketplace.json` also makes the repo a Claude Code marketplace. Keep the `name`, `version`, and `description` in all of them in sync.
+This repo is one plugin that shares the same `skills/` folder across tools: `.cursor-plugin/plugin.json` for Cursor, `.devin-plugin/plugin.json` for Devin, and `.claude-plugin/marketplace.json` for Claude Code (it works as both the marketplace and the plugin definition, so no separate Claude `plugin.json`). Keep the `name`, `version`, and `description` in all of them in sync.
 
 ## Skills included
 
