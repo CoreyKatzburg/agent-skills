@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "corey-agent-skills",
+  "description": "Corey Katzburg's personal agent skills for PR comments, reviews, Graphite stacks, transcripts, and related workflows.",
+  "owner": {
+    "name": "Corey Katzburg"
+  },
+  "plugins": [
+    {
+      "name": "agent-skills",
+      "source": "./",
+      "description": "Personal user-level agent skills for PR comments, reviews, Graphite stacks, transcripts, and related workflows.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Corey Katzburg"
+      },
+      "category": "productivity"
+    }
+  ]
+}
