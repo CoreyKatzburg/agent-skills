@@ -44,6 +44,9 @@ class MessageOut(ApiModel):
     kind: MessageKind
     body: str = Field(description="Markdown. Mentions appear as @<participant id>.")
     mention_participant_ids: list[str]
+    mention_names: dict[str, str] = Field(
+        description="Current display name of each mentioned participant, by id."
+    )
     reply_count: int
     reply_participant_ids: list[str] = Field(description="Who has replied. Empty on a reply.")
     last_reply_at: datetime | None = None

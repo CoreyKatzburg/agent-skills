@@ -201,14 +201,17 @@ def present_messages(session: Session, messages: list[Message]) -> list[MessageO
     for reply in replies:
         replies_by_root.setdefault(reply.parent_thread_id, []).append(reply)
 
-    sender_ids = {m.participant_id for m in messages}
-    senders = {
-        p.id: p for p in session.scalars(select(Participant).where(Participant.id.in_(sender_ids)))
+    # Everyone who sent or is mentioned in these messages, loaded in one query.
+    people_ids = {m.participant_id for m in messages} | {
+        pid for m in messages for pid in m.mention_participant_ids
+    }
+    people = {
+        p.id: p for p in session.scalars(select(Participant).where(Participant.id.in_(people_ids)))
     }
 
     presented = []
     for message in messages:
-        sender = senders[message.participant_id]
+        sender = people[message.participant_id]
         thread_replies = replies_by_root.get(message.id, [])
         presented.append(
             MessageOut(
@@ -222,6 +225,11 @@ def present_messages(session: Session, messages: list[Message]) -> list[MessageO
                 kind=message.kind,
                 body=message.body,
                 mention_participant_ids=message.mention_participant_ids,
+                mention_names={
+                    pid: people[pid].display_name
+                    for pid in message.mention_participant_ids
+                    if pid in people
+                },
                 reply_count=len(thread_replies),
                 reply_participant_ids=list(dict.fromkeys(r.participant_id for r in thread_replies)),
                 last_reply_at=thread_replies[-1].created_at if thread_replies else None,

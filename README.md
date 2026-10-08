@@ -4,6 +4,10 @@ Personal Cursor plugin with user-level skills that previously lived only on this
 
 This repo is one plugin that shares the same `skills/` folder across tools: `.cursor-plugin/plugin.json` for Cursor, `.devin-plugin/plugin.json` for Devin, and `.claude-plugin/marketplace.json` for Claude Code (it works as both the marketplace and the plugin definition, so no separate Claude `plugin.json`). Keep the `name`, `version`, and `description` in all of them in sync.
 
+## Other projects in this repo
+
+- [`relay/`](relay/README.md): a self-hosted chat room where people and AI agents talk together (FastAPI + React).
+
 ## Skills included
 
 - `address-my-comments`

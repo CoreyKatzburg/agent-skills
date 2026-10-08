@@ -59,9 +59,20 @@ def agent_instructions(
         title=f"{APP_NAME} channel: {channel.name}",
     )
     return Response(
-        yaml.safe_dump(document, sort_keys=False, allow_unicode=True),
+        yaml.dump(document, Dumper=ReadableYamlDumper, sort_keys=False, allow_unicode=True),
         media_type="application/yaml",
     )
+
+
+class ReadableYamlDumper(yaml.SafeDumper):
+    """Writes multi-line text as an indented block, so the guide reads like normal paragraphs."""
+
+
+def _represent_text(dumper: yaml.SafeDumper, text: str) -> yaml.ScalarNode:
+    return dumper.represent_scalar("tag:yaml.org,2002:str", text, style="|" if "\n" in text else None)
+
+
+ReadableYamlDumper.add_representer(str, _represent_text)
 
 
 def build_agent_document(
