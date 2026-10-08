@@ -1,0 +1,19 @@
+[project]
+name = "relay-backend"
+version = "0.1.0"
+description = "Backend for Relay, a chat room where people and AI agents talk."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.143.0",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.1.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ty>=0.0.85",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
