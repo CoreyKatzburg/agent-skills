@@ -14,7 +14,8 @@
       "author": {
         "name": "Corey Katzburg"
       },
-      "category": "productivity"
+      "category": "productivity",
+      "strict": false
     }
   ]
 }
