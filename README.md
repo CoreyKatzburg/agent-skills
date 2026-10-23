@@ -2,7 +2,7 @@
 
 Personal Cursor plugin with user-level skills that previously lived only on this machine (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills`).
 
-This repo is one plugin that shares the same `skills/` folder across tools: `.cursor-plugin/plugin.json` for Cursor, `.devin-plugin/plugin.json` for Devin, and `.claude-plugin/marketplace.json` for Claude Code (it works as both the marketplace and the plugin definition, so no separate Claude `plugin.json`). Keep the `name`, `version`, and `description` in all of them in sync.
+This repo is one plugin that shares the same `skills/` folder across tools: `plugin.json` and `.agents/plugins/marketplace.json` for Codex, `.cursor-plugin/plugin.json` for Cursor, `.devin-plugin/plugin.json` for Devin, and `.claude-plugin/marketplace.json` for Claude Code (it works as both the marketplace and the plugin definition, so no separate Claude `plugin.json`). Keep the plugin `name`, `version`, and `description` in all four plugin definitions in sync.
 
 ## Skills included
 
@@ -12,13 +12,19 @@ This repo is one plugin that shares the same `skills/` folder across tools: `.cu
 - `corey-mode`
 - `cross-provider-code-review`
 - `docstrings`
+- `eli5` — a visual HTML explanation for a complete beginner
 - `explain-problem-and-fix`
+- `html-plan` — an interactive HTML plan with decisions and feedback
 - `i-have-adhd`
 - `implement-with-graphite-stack`
 - `investigate-potential-bug`
 - `plain-language`
 - `sync-skill-across-tools`
 - `transcript`
+
+`eli5` and `html-plan` use the same skill files in Claude Code, Codex, Devin, Cursor, and other agents that load `SKILL.md`. They use the task or topic from the user's message and return HTML that opens in a browser; a host-specific artifact viewer is optional. `html-plan` needs Node.js to pack its page, with no package dependencies.
+
+Both are adapted from [Anthropic's community plugins](https://github.com/anthropics/claude-plugins-community/tree/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1).
 
 ## Add this as a Cursor plugin
 
