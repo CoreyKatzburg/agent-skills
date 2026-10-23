@@ -24,7 +24,7 @@ This repo is one plugin that shares the same `skills/` folder across tools: `plu
 
 `eli5` and `html-plan` use the same skill files in Claude Code, Codex, Devin, Cursor, and other agents that load `SKILL.md`. They use the task or topic from the user's message and return HTML that opens in a browser; a host-specific artifact viewer is optional. `html-plan` needs Node.js to pack its page, with no package dependencies.
 
-Both are adapted from [Anthropic's community plugins](https://github.com/anthropics/claude-plugins-community/tree/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1). Each imported skill includes its source attribution and a link to the upstream plugin metadata.
+Both are adapted from [Anthropic's community plugins](https://github.com/anthropics/claude-plugins-community/tree/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1).
 
 ## Add this as a Cursor plugin
 
