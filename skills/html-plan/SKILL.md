@@ -1,7 +1,6 @@
 ---
 name: html-plan
 description: Write an implementation plan as one interactive HTML page, with visual evidence and decisions attached to each claim. Use when the user invokes html-plan or asks for an interactive HTML plan, RFC, or design before implementation.
-license: Apache-2.0
 ---
 
 # html-plan
@@ -178,5 +177,5 @@ A decision line can end in one of two ways:
 
 ## Source
 
-Adapted from [Anthropic's html-plan skill](https://github.com/anthropics/claude-plugins-community/tree/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1/html-plan), under [Apache-2.0](LICENSE).
+Adapted from [Anthropic's html-plan skill](https://github.com/anthropics/claude-plugins-community/tree/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1/html-plan). The [upstream plugin metadata](https://github.com/anthropics/claude-plugins-community/blob/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1/html-plan/.claude-plugin/plugin.json) names Thariq Shihipar as the author and declares MIT.
 Modified for this repository: portable task input, tool and output guidance, a focused trigger description, user writing preferences, and agent-neutral response text in the browser runtime. Trailing whitespace was removed from the runtime files. The reference and example are unchanged from that revision.

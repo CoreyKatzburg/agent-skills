@@ -1,7 +1,6 @@
 ---
 name: eli5
 description: Explain a topic to a complete beginner through an HTML page with big pictures and few words. Use when the user invokes eli5 or asks for a simple visual explanation of how something works.
-license: Apache-2.0
 ---
 
 # eli5
@@ -16,5 +15,5 @@ If the current host can display HTML, show it there. Otherwise, give the user a 
 
 ## Source
 
-Adapted from [Anthropic's eli5 skill](https://github.com/anthropics/claude-plugins-community/tree/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1/eli5), under [Apache-2.0](LICENSE).
+Adapted from [Anthropic's eli5 skill](https://github.com/anthropics/claude-plugins-community/tree/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1/eli5). The [upstream plugin metadata](https://github.com/anthropics/claude-plugins-community/blob/06ec7b6a0a82bdc4bec44bd82d4368c42f20d7c1/eli5/.claude-plugin/plugin.json) names Thariq Shihipar as the author and declares MIT.
 Modified for this repository: portable topic input and self-contained HTML output with a browser fallback.
