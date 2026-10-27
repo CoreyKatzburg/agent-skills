@@ -21,6 +21,9 @@ This repo is one plugin that shares the same `skills/` folder across tools: `plu
 - `plain-language`
 - `sync-skill-across-tools`
 - `transcript`
+- `windows-desktop-ssh` — SSH to Corey’s Windows desktop from a managed cloud agent.
+
+`windows-desktop-ssh` is mirrored under `.agents/skills/` for Codex Cloud tasks that use this repository.
 
 `eli5` and `html-plan` use the same skill files in Claude Code, Codex, Devin, Cursor, and other agents that load `SKILL.md`. They use the task or topic from the user's message and return HTML that opens in a browser; a host-specific artifact viewer is optional. `html-plan` needs Node.js to pack its page, with no package dependencies.
 

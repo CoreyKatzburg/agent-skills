@@ -1,7 +1,7 @@
 {
   "name": "agent-skills",
-  "version": "1.1.0",
-  "description": "Personal user-level agent skills for PR comments, reviews, Graphite stacks, transcripts, and related workflows.",
+  "version": "1.2.0",
+  "description": "Personal user-level agent skills for reviews, workflows, and desktop SSH.",
   "author": {
     "name": "Corey Katzburg"
   },
