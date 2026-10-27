@@ -8,6 +8,7 @@ This repo is one plugin that shares the same `skills/` folder across tools: `plu
 
 - `address-my-comments`
 - `address-pr-comments`
+- `be-ambitious` — deepen a task without expanding its scope.
 - `box`
 - `corey-mode`
 - `cross-provider-code-review`
@@ -22,6 +23,8 @@ This repo is one plugin that shares the same `skills/` folder across tools: `plu
 - `sync-skill-across-tools`
 - `transcript`
 - `windows-desktop-ssh` — SSH to Corey’s Windows desktop from a managed cloud agent.
+
+`be-ambitious` uses plain Markdown instructions and has no host-specific tool dependencies. The plugin manifests load the shared `skills/` folder in Claude Code, Codex, Devin, and Cursor. Its input rules accept namespaced plugin commands, `/be-ambitious`, skill-picker invocation, or natural-language requests; other agents that load `SKILL.md` can use the same file.
 
 `windows-desktop-ssh` is mirrored under `.agents/skills/` for Codex Cloud tasks that use this repository.
 
