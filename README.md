@@ -26,7 +26,7 @@ This repo is one plugin that shares the same `skills/` folder across tools: `plu
 
 `be-ambitious` uses plain Markdown instructions and has no host-specific tool dependencies. The plugin manifests load the shared `skills/` folder in Claude Code, Codex, Devin, and Cursor. Its input rules accept namespaced plugin commands, `/be-ambitious`, skill-picker invocation, or natural-language requests; other agents that load `SKILL.md` can use the same file.
 
-`windows-desktop-ssh` is mirrored under `.agents/skills/` for Codex Cloud tasks that use this repository.
+`windows-desktop-ssh` and `be-ambitious` are mirrored under `.agents/skills/` for Codex Cloud tasks that use this repository.
 
 `eli5` and `html-plan` use the same skill files in Claude Code, Codex, Devin, Cursor, and other agents that load `SKILL.md`. They use the task or topic from the user's message and return HTML that opens in a browser; a host-specific artifact viewer is optional. `html-plan` needs Node.js to pack its page, with no package dependencies.
 
