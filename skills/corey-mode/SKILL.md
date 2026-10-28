@@ -4,7 +4,6 @@ description: >-
   Corey's agent style for junior-dev explanations, smallest diffs, Graphite
   stacks kept local until asked, and capable-model fan-out. Use for Corey,
   /corey-mode, or requests to work in this style.
-disable-model-invocation: true
 icon: book-open
 color: cyan
 ---
