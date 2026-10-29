@@ -1,6 +1,6 @@
 interface:
   display_name: "Goal"
-  short_description: "Pursue and audit a persistent objective"
-  default_prompt: "Use $goal to work toward this objective until every requirement is verified."
+  short_description: "Pursue and verify the full goal"
+  default_prompt: "Use $goal to pursue this objective and verify every requirement before declaring completion."
 policy:
   allow_implicit_invocation: false
