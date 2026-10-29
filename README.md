@@ -15,6 +15,7 @@ This repo is one plugin that shares the same `skills/` folder across tools: `plu
 - `docstrings`
 - `eli5` — a visual HTML explanation for a complete beginner
 - `explain-problem-and-fix`
+- `goal` — persistent, evidence-audited objectives (native Codex Goals where available, portable state fallback elsewhere).
 - `html-plan` — an interactive HTML plan with decisions and feedback
 - `i-have-adhd`
 - `implement-with-graphite-stack`
@@ -82,3 +83,9 @@ Skills show up as `/agent-skills:<skill>`. After pushing changes, run `/plugin m
 ## Updating skills later
 
 Copy the changed skill folder into `skills/`, commit, and push. Then refresh the team marketplace (or wait for Auto Refresh if you enable it). No automatic sync from your home-directory skill folders is set up.
+
+## Goal skill
+
+Invoke `$goal <objective>` in Codex or the skill equivalent exposed by another host (such as `/agent-skills:goal`). In Codex, native `/goal` remains the recommended exact implementation; enable Goals with `codex features enable goals` if supported. The shared skill uses native Goals tools where provided. In other hosts it maintains per-thread fallback state using Python, but **cannot** trigger automatic turns, provide exact token metering, or enforce native budgets. See `skills/goal/references/portable-mode.md`.
+
+Run fallback lifecycle tests with `python -m unittest discover -s skills/goal/tests`.
