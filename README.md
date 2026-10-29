@@ -15,6 +15,7 @@ This repo is one plugin that shares the same `skills/` folder across tools: `plu
 - `docstrings`
 - `eli5` — a visual HTML explanation for a complete beginner
 - `explain-problem-and-fix`
+- `goal` — instruction-only goal pursuit with rigorous progress, blocker, and completion checks.
 - `html-plan` — an interactive HTML plan with decisions and feedback
 - `i-have-adhd`
 - `implement-with-graphite-stack`
@@ -82,3 +83,9 @@ Skills show up as `/agent-skills:<skill>`. After pushing changes, run `/plugin m
 ## Updating skills later
 
 Copy the changed skill folder into `skills/`, commit, and push. Then refresh the team marketplace (or wait for Auto Refresh if you enable it). No automatic sync from your home-directory skill folders is set up.
+
+## Goal skill
+
+Invoke `$goal <objective>` in Codex, or the equivalent skill invocation exposed by another host (such as `/agent-skills:goal`). The skill includes the full behavioral instructions adapted from Codex's published `/goal` continuation prompt: preserve the original scope, work from current evidence, detect no-progress and verified waits, prioritize fidelity, audit every acceptance criterion, and require three consecutive observable same-blocker turns before declaring blocked. Pause only on an explicit user request.
+
+**Instruction-only:** no Python dependencies, background jobs, MCP tools, hooks, persisted goal files, or token counters. The skill does not start new turns or provide native lifecycle tracking; use Codex's built-in `/goal` if you need those runtime features.
