@@ -15,7 +15,7 @@ This repo is one plugin that shares the same `skills/` folder across tools: `plu
 - `docstrings`
 - `eli5` — a visual HTML explanation for a complete beginner
 - `explain-problem-and-fix`
-- `goal` — persistent, evidence-audited objectives (native Codex Goals where available, portable state fallback elsewhere).
+- `goal` — instruction-only goal pursuit with rigorous progress, blocker, and completion checks.
 - `html-plan` — an interactive HTML plan with decisions and feedback
 - `i-have-adhd`
 - `implement-with-graphite-stack`
@@ -86,6 +86,6 @@ Copy the changed skill folder into `skills/`, commit, and push. Then refresh the
 
 ## Goal skill
 
-Invoke `$goal <objective>` in Codex or the skill equivalent exposed by another host (such as `/agent-skills:goal`). In Codex, native `/goal` remains the recommended exact implementation; enable Goals with `codex features enable goals` if supported. The shared skill uses native Goals tools where provided. In other hosts it maintains per-thread fallback state using Python, but **cannot** trigger automatic turns, provide exact token metering, or enforce native budgets. See `skills/goal/references/portable-mode.md`.
+Invoke `$goal <objective>` in Codex, or the equivalent skill invocation exposed by another host (such as `/agent-skills:goal`). The skill includes the full behavioral instructions adapted from Codex's published `/goal` continuation prompt: preserve the original scope, work from current evidence, detect no-progress and verified waits, prioritize fidelity, audit every acceptance criterion, and require three consecutive observable same-blocker turns before declaring blocked. Pause only on an explicit user request.
 
-Run fallback lifecycle tests with `python -m unittest discover -s skills/goal/tests`.
+**Instruction-only:** no Python dependencies, background jobs, MCP tools, hooks, persisted goal files, or token counters. The skill does not start new turns or provide native lifecycle tracking; use Codex's built-in `/goal` if you need those runtime features.
