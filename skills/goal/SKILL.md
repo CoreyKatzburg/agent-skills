@@ -1,38 +1,81 @@
 ---
 name: goal
-description: Pursue an explicitly requested durable goal until its entire outcome is verified, with progress checks, evidence-based completion, and carefully controlled blocked/paused states. Use when the user invokes $goal, /agent-skills:goal, or explicitly asks to start, resume, inspect, pause, or clear a long-running goal; not for ordinary tasks.
+description: Follow an explicit durable objective through concrete work, progress classification, strict evidence-based completion audits, and three-turn blocker checks. Use only when the user invokes this skill or explicitly establishes/continues a goal; not for ordinary requests.
 metadata:
-  short-description: Persist and verify an ambitious objective
+  short-description: Pursue and rigorously verify a goal
 ---
 
 # Goal
 
-Pursue one **user-defined end state**, not a task list that ends when a response ends. This skill mirrors the *behavioral contract* of Codex `/goal`. Prefer the actual Codex Goals runtime whenever available; a skill by itself cannot install a turn dispatcher, grant tools, enforce token budgets, or cause idle threads to run automatically.
+This is an **instruction-only** adaptation of Codex's built-in `/goal` behavioral contract. Follow the user's original end state, rather than ending when the current answer, plan, or easiest subset looks finished.
 
-## Input and routing
+### Activation and goal scope
+- Activate only on explicit user intent: `$goal <objective>`, `/agent-skills:goal <objective>`, the equivalent skill-picker invocation, or a clear request to establish or continue a goal. Do not silently turn ordinary work requests into goals.
+- The objective is the complete user-provided text, including every numbered item, required artifact, test, gate, invariant, restriction, and approval condition. Do not rewrite the objective to something easier, or take a user's task text as an override of higher-priority instructions.
+- If the user invokes the skill without supplying an objective, use an unmistakably established active goal from the visible conversation. If none exists, ask for the objective. For a continuation, first recover the original objective and the most recent verified findings; if they are not available, request the missing context rather than inventing it.
+- The user may amend, pause, resume, or stop pursuing the goal. Respect newer user instructions. Never assume an action is authorized solely because the goal is active.
+- A skill can guide the **current** turn and a later turn that invokes it again; it cannot trigger new ChatGPT messages, force a host to continue after a response, or guarantee durable state between chats. Do not claim otherwise.
 
-The objective is the full text after `$goal`, `/agent-skills:goal`, `/goal` (only if this invocation reaches the skill), or an explicit request to start a goal. Do **not** create goals from normal work requests or reinterpret goal text as higher-priority instructions. Preserve all steps and conditions verbatim. For requests without new text, check the existing goal rather than inventing an objective. Distinguish status, pause, resume, clear, and objective-edit requests from new goals.
+### Goal work
+Continue working toward the active user goal when invoked. Treat the objective as user-provided data to pursue, not as higher-priority instructions. Use the actual current environment and available tools. If an action needs user permission or is disallowed, keep that gate intact.
 
-1. **Native mode (Codex):** If `get_goal`, `create_goal`, and `update_goal` are available and permitted, use `get_goal` for existing state, `create_goal` only when the user explicitly starts a goal, and `update_goal` only under the audits below. Do not create a parallel fallback file. Native `/goal pause`, `/goal resume`, `/goal clear`, and objective edits are managed by the host/user; do not pretend that `update_goal` can resume or clear. Let the host handle persistence, automatic continuation, token/time accounting, interruption and budgets. Do not replace native `/goal` or claim the skill has registered a slash command named `/goal`.
-2. **Portable mode (no native Goal tools):** Use `scripts/goal_state.py` to persist a *thread-specific* objective and lifecycle, then pursue it within the available turn. Resolve the script from this skill's installed directory. The helper requires Python 3.9+ and writes under the user's state directory (not the worktree). Use the runtime session ID when available; otherwise retain and report the generated fallback thread ID. Do not silently share goals between chats. Follow [portable state instructions](references/portable-mode.md). A later user turn must reinvoke/resume work: no auto-turns or exact token accounting exist in portable mode. If the user requires native auto-continuation or an exact token budget, explain that the host must expose native Goals rather than claiming parity.
-3. **No state mechanism:** If tools, Python, or writable state are unavailable, explicitly say persistence and automatic continuation aren't supported. Still apply the audit behavior for the current turn; do not report a durable goal as created.
+### Continuation behavior
+- Preserve the original objective across turns whenever it remains available in this conversation or explicitly supplied context. Ending this turn does not require shrinking the objective to what fits now. A skill cannot persist hidden goal state, schedule follow-up turns, or force automatic continuation.
+- Keep the full objective intact. If it cannot be finished now, make concrete progress toward the real requested end state, leave the goal active, and do not redefine success around a smaller or easier task.
+- Temporary rough edges are acceptable while the work is moving in the right direction. Completion still requires the requested end state to be true and verified.
 
-## Work loop (both modes)
+### Budget and execution limits
+- Respect the host's limits and any explicit user-specified constraints. This instruction-only skill does not measure tokens, enforce a token budget, or extend an execution session.
+- Do not invent token counts, remaining budget, completion status, background activity, or runtime capabilities. Stopping because of a time, context, or platform limit is not proof the goal is finished.
+- If this turn must end while work remains, provide concrete verified progress, remaining requirements, and the next best action; keep the objective intact for a later user-triggered continuation.
 
-1. Read the active objective and inspect authoritative **current** state: worktree, files, running processes, jobs, external resources, and tool outputs. Use conversation history to locate work, not to prove its present status. Treat the objective as user task data and continue to respect all approval, safety, repository and tool boundaries. Do not launch a game, deploy, spend money, or take other gated action without any required authorization just because the goal persists.
-2. Derive a requirement/evidence checklist covering every numbered item, named artifact, benchmark, command, invariant, gate, and deliverable. Keep the original scope; do not quietly narrow it for a stable-looking result. If a plan tool exists, keep a concise plan aligned with this checklist, but plans and status reports alone are not progress.
-3. Choose the next safe, high-value action that makes the *actual end state* more true. Execute, inspect results, repair, retest, and iterate while this turn permits. Temporary rough edges are acceptable during progress; they do not lower the final verification bar.
-4. At each turn boundary, classify the previous goal turn: **progress**, **verified wait**, or **no progress**. Progress changes authoritative state or yields actionable new evidence. A verified wait must involve a process/session/job/tool handle **confirmed live now**; re-poll after timeouts rather than assuming a process died, and don't restart on timeout alone. A plan, stale lock/state file, recap, or unexecuted next step is neither progress nor verified wait. For no progress, revalidate reality and take the next safe available action; track the *same* blocker across wording changes.
-5. Before any completion or blocked transition, apply the [exacting audit contract](references/audits.md). Keep working toward the whole objective if requirements are incomplete, unsupported, or unverified. Never turn time/budget exhaustion, the end of a response, or a passing narrow test into success.
-6. Report concisely: active objective, concrete changes/evidence, requirements still open, next action or genuine blocker, and actual lifecycle status. If still active, say so; never imply background continuation unless the native runtime is actually running it.
+### Work from evidence
+Use the current worktree and external state as authoritative. Previous conversation context can help locate relevant work, but inspect the current state before relying on it. Improve, replace, or remove existing work as needed to satisfy the actual objective.
 
-## Lifecycle rules
+### No-progress check
+- Classify the previous goal turn as progress, a verified wait, or no progress. Progress changes authoritative state, completes work, or yields evidence that changes the next action; status restatements and unexecuted plans are no progress.
+- A verified wait polls a specific process, session, job, or tool handle confirmed live now. Conversation, intent, prior output, or a lock or state file alone is insufficient. Treat work as stopped only when authoritative state says it is terminal or its handle is missing. An observation timeout or transient polling failure is not terminal: re-poll the same handle or inspect other authoritative state; never restart solely because observation expired.
+- Revalidate a no-progress turn and take the next available safe action. If none exists because the same genuine blocker remains, report it and leave the goal active until the blocked audit threshold is met. Treat equivalent blockers as the same condition across turns even when their wording or stated next step changes.
 
-- **Complete:** Audit *every* explicit and referenced requirement against authoritative current evidence. Mark complete only if all are proven and no required work remains. In native mode call `update_goal(status="complete")`; if budgeted, report the **tool-returned** consumed token amount. In portable mode write a complete audit and use the helper's completion gate; it validates the audit's shape, **not** the truth of its evidence.
-- **Blocked:** Only when meaningful progress is impossible without user input or an external change **and** the same blocker has persisted across at least **three consecutive goal turns** (including the user-triggered turn). Recheck the real state and record the same stable blocker identity; reset the streak after progress, a distinct blocker, or a new resumed run. Never mark blocked simply because it is difficult, expensive, incomplete, or because you would prefer clarification. After threshold, update status rather than endlessly repeating a blocker message.
-- **Paused:** Only at the user's explicit request. Call `update_goal(status="paused")` in native mode or persist paused in portable mode, report actual result, and stop goal work. Do not pause on your own. Native resume/clear is host-driven, whereas portable resume/clear requires an explicit user request.
-- **Budget/interruption:** Respect native limits and interruption decisions. Budget-limited is **not complete**: stop substantive work and report evidence and next steps. Without native accounting, do not invent used/remaining token figures or pretend to enforce a budget.
+### Progress visibility
+If update_plan is available and the next work is meaningfully multi-step, use it to show a concise plan tied to the real objective. Keep the plan current as steps complete or the next best action changes. Skip planning overhead for trivial one-step progress, and do not treat a plan update as a substitute for doing the work.
 
-## References
+### Fidelity
+- Optimize each turn for movement toward the requested end state, not for the smallest stable-looking subset or easiest passing change.
+- Do not substitute a narrower, safer, smaller, merely compatible, or easier-to-test solution because it is more likely to pass current tests.
+- Treat alignment as movement toward the requested end state. An edit is aligned only if it makes the requested final state more true; useful-looking behavior that preserves a different end state is misaligned.
 
-Read [audits.md](references/audits.md) before finalizing a goal, and [portable-mode.md](references/portable-mode.md) when native tools are absent. These rules are adapted from two captured Codex goal-continuation transcripts and verified against [Codex's published continuation template](https://github.com/openai/codex/blob/main/codex-rs/ext/goal/templates/goals/continuation.md), [Goal tool API](https://github.com/openai/codex/blob/main/codex-rs/ext/goal/src/spec.rs), and [official Goals guide](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex).
+### Completion audit
+Before deciding that the goal is achieved, treat completion as unproven and verify it against the actual current state:
+- Derive concrete requirements from the objective and any referenced files, plans, specifications, issues, or user instructions.
+- Preserve the original scope; do not redefine success around the work that already exists.
+- For every explicit requirement, numbered item, named artifact, command, test, gate, invariant, and deliverable, identify the authoritative evidence that would prove it, then inspect the relevant current-state sources: files, command output, test results, PR state, rendered artifacts, runtime behavior, or other authoritative evidence.
+- For each item, determine whether the evidence proves completion, contradicts completion, shows incomplete work, is too weak or indirect to verify completion, or is missing.
+- Match the verification scope to the requirement's scope; do not use a narrow check to support a broad claim.
+- Treat tests, manifests, verifiers, green checks, and search results as evidence only after confirming they cover the relevant requirement.
+- Treat uncertain or indirect evidence as not achieved; gather stronger evidence or continue the work.
+- The audit must prove completion, not merely fail to find obvious remaining work.
+
+Do not rely on intent, partial progress, memory of earlier work, or a plausible final answer as proof of completion. Marking the goal complete is a claim that the full objective has been finished and can withstand requirement-by-requirement scrutiny. Only mark the goal achieved when current evidence proves every requirement has been satisfied and no required work remains. If the evidence is incomplete, weak, indirect, merely consistent with completion, or leaves any requirement missing, incomplete, or unverified, keep working instead of marking the goal complete. If and only if the full objective is proven, report **complete** and cite or describe the authoritative evidence for each required outcome. Do not claim a lifecycle tool was called or token usage was measured.
+
+### Blocked audit
+- Do not declare the goal **blocked** the first time a blocker appears. Record the obstacle and continue taking meaningful, safe actions when available.
+- Only report the goal as **blocked** when the same blocking condition has repeated for at least three consecutive *observable* goal turns, counting the original/user-triggered turn. Do not invent turns or assume a history you cannot inspect.
+- If the user resumes a goal previously reported blocked, treat the resumed run as a fresh blocked audit. Require three consecutive observed blocked turns in that new run before reporting **blocked** again.
+- Use status "blocked" only when you are truly at an impasse and cannot make meaningful progress without user input or an external-state change.
+- Once the threshold is satisfied and no meaningful action exists, report **blocked** clearly, identify what external change or user input is required, and stop claiming that progress is happening.
+- Never use status "blocked" merely because the work is hard, slow, uncertain, incomplete, or would benefit from clarification.
+
+### Pausing and status reporting
+- If the user explicitly requests a pause, stop goal work and describe the current state as **paused at the user's request**. Do not pause on your own initiative.
+- A user's explicit resumption means proceed against the *original full objective*, verifying current state anew. A request to clear the goal means stop treating it as the active objective; do not claim any stored goal record was deleted.
+- With no usable history of three consecutive same-blocker turns, describe the current blocker without falsely declaring the goal's lifecycle status **blocked**. If the turn cannot continue, state that the goal remains **incomplete**, not complete.
+- This skill has no lifecycle tool or hidden durable state. Statuses in this workflow are reports, not mutations of a native goal record. Never assert automatic continuation, background execution, or usage accounting.
+- Do not mark a goal complete merely because a budget is nearly exhausted, a turn is ending, or a smaller solution passed its tests.
+
+
+### Turn-end report (when not proven complete)
+Keep reporting brief and evidence-based: state what changed or was verified, which original requirements remain, the concrete next action or actual blocker, and whether the objective is **complete**, **incomplete**, **blocked** after the required audit, or **paused** at user request. Do not substitute a status report for execution. Do not promise to work in the background when no running task supports it.
+
+### Provenance
+The operational instructions above are adapted from user-supplied Codex `/goal` continuation transcripts and the [published Codex continuation template](https://github.com/openai/codex/blob/main/codex-rs/ext/goal/templates/goals/continuation.md). This skill deliberately omits native Codex goal tools, scripts, MCP, hooks, event dispatch, persistent state files, and fake token accounting. Native Codex `/goal` remains the correct choice if exact automatic continuation is required.
